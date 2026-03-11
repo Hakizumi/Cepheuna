@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Voice Agent</title>
+	<link rel="stylesheet" href="source/style.css">
+</head>
+
+<body>
+	<h1>Voice Agent Browser</h1>
+	
+	<div class="row">
+		<label>CID <input id="cid" value="demo-browser"></label>
+		<label>WS <input id="wsUrl" size="60" value="ws://localhost:8080/ws/voice-agent?cid=demo-browser"></label>
+	</div>
+	
+	<div class="row">
+		<button id="connectBtn">Connect</button>
+		<button id="disconnectBtn">Disconnect</button>
+		<button id="startMicBtn">Start Mic</button>
+		<button id="stopMicBtn">Stop Mic</button>
+		<button id="stopAssistantBtn">Stop Assistant</button>
+	</div>
+	
+	<textarea id="prompt">Hello!</textarea>
+	
+	<div class="row">
+		<button id="sendBtn">Send Text</button>
+	</div>
+	
+	<pre id="log"></pre>
+	<script type="module" src="dist/main.js"> </script>
+</body>
+</html>
