@@ -86,7 +86,7 @@ public class AudioService {
         return "wav";
     }
 
-    private Flux<byte[]> toStableWavFlux(@NonNull List<byte[]> chunks) {
+    private @NonNull Flux<byte[]> toStableWavFlux(@NonNull List<byte[]> chunks) {
         if (chunks.isEmpty()) {
             return Flux.empty();
         }
@@ -131,7 +131,7 @@ public class AudioService {
     }
 
     @Contract("null -> new")
-    private byte @NonNull [] ensureEvenBytes(byte[] bytes) {
+    private byte @NonNull [] ensureEvenBytes(byte @Nullable [] bytes) {
         if (bytes == null || bytes.length == 0) {
             return new byte[0];
         }
@@ -163,7 +163,7 @@ public class AudioService {
         return out.toByteArray();
     }
 
-    private byte @Nullable [] extractAudioBytes(Object response) {
+    private byte @Nullable [] extractAudioBytes(@NonNull Object response) {
         try {
             Method getResult = response.getClass().getMethod("getResult");
             Object result = getResult.invoke(response);

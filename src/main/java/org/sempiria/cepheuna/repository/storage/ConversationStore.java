@@ -98,5 +98,5 @@ public interface ConversationStore {
      *
      * @throws NullPointerException if cid or message is null
      */
-    ConversationEntity pushMessage(String cid, Message message);
+    @Nullable ConversationEntity pushMessage(String cid, Message message);
 }
