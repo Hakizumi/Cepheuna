@@ -1,5 +1,14 @@
 package org.sempiria.cepheuna.enums;
 
+/**
+ * Conversation state enumeration.
+ *
+ * @see org.sempiria.cepheuna.entity.ConversationEntity
+ *
+ * @since 1.0.0
+ * @version 1.0.0
+ * @author Sempiria
+ */
 public enum ConversationState {
     /// Both user and assistant are not active
     IDLE,

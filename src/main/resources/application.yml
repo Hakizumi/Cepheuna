@@ -1,0 +1,51 @@
+server:
+  port: 11622
+
+spring:
+  application:
+    name: Cepheuna
+
+  ai:
+    openai:
+      chat:
+        options:
+          model: gpt-4o-mini
+
+      audio:
+        speech:
+          options:
+            model: gpt-4o-mini-tts
+            voice: alloy
+            response-format: pcm
+            speed: 1.08
+
+cepheuna:
+  version: 1.1.0
+
+  audio:
+    sample-rate: 16000
+    bit-depth: 16
+    channels: 1
+    frame-ms: 20
+
+    asr-threads: 1
+    vad-rms-threshold: 0.015
+    silence-trigger-frame: 18
+    speech-trigger-frame: 6
+
+    buffer-high-ms: 2500
+    buffer-low-ms: 800
+    buffer-start-ms: 1200
+
+  tokenizer:
+    cut: ",.;?!~，。；？！\n"
+    soft-length: 48
+    aggressive-soft-length: 24
+    hard-length: 160
+    min-emit-chars: 12
+    aggressive-min-emit-chars: 8
+
+logging:
+  level:
+    root: info
+    org.sempiria.voiceagent: debug

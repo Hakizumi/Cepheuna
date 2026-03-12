@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Compare to the old version, the newer one is not only store memories, but also store information of conversation.
  *
  * @since 1.0.0
- * @version 2.0.0
+ * @version 1.0.0
  * @author Sempiria
  */
 @RequiredArgsConstructor

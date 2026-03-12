@@ -3,16 +3,16 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Voice Agent</title>
-	<link rel="stylesheet" href="source/style.css">
+	<title>Cepheuna</title>
+	<link rel="stylesheet" th:href="@{/source/style.css}">
 </head>
 
 <body>
-	<h1>Voice Agent Browser</h1>
+	<h1>Cepheuna Browser</h1>
 	
 	<div class="row">
 		<label>CID <input id="cid" value="demo-browser"></label>
-		<label>WS <input id="wsUrl" size="60" value="ws://localhost:8080/ws/voice-agent?cid=demo-browser"></label>
+		<label>WS <input id="wsUrl" size="60" value="ws://localhost:11622/ws/cepheuna?cid=dev"></label>
 	</div>
 	
 	<div class="row">
@@ -30,6 +30,7 @@
 	</div>
 	
 	<pre id="log"></pre>
-	<script type="module" src="dist/main.js"> </script>
+	
+	<script type="module" th:src="@{/dist/main.js}"></script>
 </body>
 </html>

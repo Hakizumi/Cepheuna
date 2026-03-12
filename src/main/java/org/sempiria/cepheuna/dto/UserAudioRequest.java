@@ -8,7 +8,7 @@ package org.sempiria.cepheuna.dto;
  * @param utteranceId assistant utterance id, nullable for STT events
  * @param segmentIndex segment index in a single utterance, 0-based
  *
- * @since 3.0.2
+ * @since 1.0.0
  * @version 1.0.0
  * @author Sempiria
  */

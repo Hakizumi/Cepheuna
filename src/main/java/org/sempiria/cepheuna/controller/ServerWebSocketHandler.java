@@ -22,28 +22,39 @@ import java.net.URI;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Browser websocket endpoint.
  *
- * <p>Supported text commands:
- * <ul>
- *     <li>{@code {"type":"chat","cid":"...","text":"..."}}</li>
- *     <li>{@code {"type":"stop","cid":"..."}}</li>
- *     <li>{@code {"type":"ping","cid":"..."}}</li>
- * </ul>
- *
- * <p>Binary frames are interpreted as PCM16LE microphone audio.
- *
- * @since 3.0.2
- * @version 1.0.0
- * @author Sempiria
+ * <p>Two stability fixes are important here:
+ * <ol>
+ *     <li>All writes to a session are serialized with one lock, so Tomcat never
+ *     sees concurrent text writes on the same WebSocket session.</li>
+ *     <li>After the socket is closed, the session outstream is marked closed and
+ *     server cleanup uses a no-op outstream, so no more messages are attempted
+ *     on the dead session.</li>
+ * </ol>
  */
 @Component
 public class ServerWebSocketHandler extends AbstractWebSocketHandler {
+    private static final OutstreamService NOOP_OUTSTREAM = new OutstreamService() {
+        @Override
+        public void onUserPartialText(@NonNull UserAudioRequest request) {
+        }
+
+        @Override
+        public void onUserFinalText(@NonNull UserAudioRequest request) {
+        }
+
+        @Override
+        public void onAssistantEvent(@NonNull ServerSentEvent<String> event) {
+        }
+    };
+
     private final ServerService serverService;
     private final ObjectMapper objectMapper;
-    private final Map<String, OutstreamService> outstreams = new ConcurrentHashMap<>();
+    private final Map<String, SessionOutstreamService> outstreams = new ConcurrentHashMap<>();
 
     public ServerWebSocketHandler(ServerService serverService, ObjectMapper objectMapper) {
         this.serverService = serverService;
@@ -58,19 +69,19 @@ public class ServerWebSocketHandler extends AbstractWebSocketHandler {
             return;
         }
 
-        OutstreamService outstream = new SessionOutstreamService(session, objectMapper, cid);
+        SessionOutstreamService outstream = new SessionOutstreamService(session, objectMapper, cid);
         outstreams.put(session.getId(), outstream);
         outstream.onConnected(cid);
     }
 
     @Override
-    protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
+    protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) {
         String cid = parseCid(session);
         if (cid == null) {
             return;
         }
 
-        OutstreamService outstream = getOutstream(session, cid);
+        SessionOutstreamService outstream = getOutstream(session, cid);
         String payload = message.getPayload();
 
         FrontendWsCommand command = tryParseCommand(payload, cid);
@@ -88,22 +99,25 @@ public class ServerWebSocketHandler extends AbstractWebSocketHandler {
     }
 
     @Override
-    protected void handleBinaryMessage(@NonNull WebSocketSession session, @NonNull BinaryMessage message) throws Exception {
+    protected void handleBinaryMessage(@NonNull WebSocketSession session, @NonNull BinaryMessage message) {
         String cid = parseCid(session);
         if (cid == null) {
             return;
         }
 
-        OutstreamService outstream = getOutstream(session, cid);
+        SessionOutstreamService outstream = getOutstream(session, cid);
         serverService.onUserVoice(cid, message.getPayload(), outstream);
     }
 
     @Override
     public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) throws Exception {
         String cid = parseCidSilently(session.getUri());
-        OutstreamService outstream = outstreams.remove(session.getId());
-        if (cid != null && outstream != null) {
-            serverService.stopConversation(cid, outstream);
+        SessionOutstreamService outstream = outstreams.remove(session.getId());
+        if (outstream != null) {
+            outstream.markClosed();
+        }
+        if (cid != null) {
+            serverService.stopConversation(cid, NOOP_OUTSTREAM);
         }
         super.afterConnectionClosed(session, status);
     }
@@ -121,11 +135,11 @@ public class ServerWebSocketHandler extends AbstractWebSocketHandler {
         }
     }
 
-    private @NonNull OutstreamService getOutstream(@NonNull WebSocketSession session, String cid) {
+    private @NonNull SessionOutstreamService getOutstream(@NonNull WebSocketSession session, String cid) {
         return outstreams.computeIfAbsent(session.getId(), (id) -> new SessionOutstreamService(session, objectMapper, cid));
     }
 
-    private @Nullable String parseCid(@NonNull WebSocketSession session) throws IOException {
+    private @Nullable String parseCid(@NonNull WebSocketSession session) {
         if (!session.isOpen()) {
             return null;
         }
@@ -151,11 +165,17 @@ public class ServerWebSocketHandler extends AbstractWebSocketHandler {
         private final WebSocketSession session;
         private final ObjectMapper objectMapper;
         private final String cid;
+        private final Object sendLock = new Object();
+        private final AtomicBoolean closed = new AtomicBoolean(false);
 
         private SessionOutstreamService(WebSocketSession session, ObjectMapper objectMapper, String cid) {
             this.session = session;
             this.objectMapper = objectMapper;
             this.cid = cid;
+        }
+
+        private void markClosed() {
+            closed.set(true);
         }
 
         @Override
@@ -294,14 +314,17 @@ public class ServerWebSocketHandler extends AbstractWebSocketHandler {
         }
 
         private void sendJson(Map<String, Object> payload) {
-            try {
-                if (!session.isOpen()) {
+            synchronized (sendLock) {
+                if (closed.get() || !session.isOpen()) {
                     return;
                 }
-                session.sendMessage(new TextMessage(objectMapper.writeValueAsString(payload)));
-            }
-            catch (IOException ignored) {
-                // ignore closed socket
+
+                try {
+                    session.sendMessage(new TextMessage(objectMapper.writeValueAsString(payload)));
+                }
+                catch (IOException | IllegalStateException ignored) {
+                    closed.set(true);
+                }
             }
         }
     }

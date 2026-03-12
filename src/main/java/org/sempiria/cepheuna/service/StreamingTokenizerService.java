@@ -16,8 +16,8 @@ import java.util.function.Consumer;
  * <p>This revision emits the first sentence more aggressively and supports CJK
  * text better, so Chinese replies do not wait for whitespace that never comes.
  *
- * @since 2.0.0
- * @version 1.2.0
+ * @since 1.0.0
+ * @version 1.1.0
  * @author Sempiria
  */
 @Service
@@ -69,12 +69,12 @@ public final class StreamingTokenizerService {
             for (int i = 0; i < n; i++) {
                 char ch = chunk.charAt(i);
 
-                if (buf.length() == 0 && Character.isWhitespace(ch)) {
+                if (buf.isEmpty() && Character.isWhitespace(ch)) {
                     continue;
                 }
 
                 if (isSep(ch)) {
-                    if (buf.length() > 0) {
+                    if (!buf.isEmpty()) {
                         buf.append(ch);
                         int min = aggressive ? aggressiveMinEmitChars : minEmitChars;
                         if (buf.length() >= min) {
@@ -108,7 +108,7 @@ public final class StreamingTokenizerService {
     public void flush(@NonNull Consumer<String> onToken) {
         lock.lock();
         try {
-            if (buf.length() > 0) {
+            if (!buf.isEmpty()) {
                 emitAndReset(onToken);
             }
         }

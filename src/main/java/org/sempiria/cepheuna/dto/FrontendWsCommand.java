@@ -9,8 +9,8 @@ import org.jspecify.annotations.NonNull;
  * @param cid conversation id
  * @param text user text
  *
- * @since 3.0.0
- * @version 1.0.1
+ * @since 1.0.0
+ * @version 1.0.0
  * @author Sempiria
  */
 public record FrontendWsCommand(String type, String cid, String text) {

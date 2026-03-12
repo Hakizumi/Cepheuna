@@ -9,8 +9,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Per-conversation tokenizer store.
  *
- * @since 2.0.0
- * @version 1.1.0
+ * @since 1.0.0
+ * @version 1.0.0
  * @author Sempiria
  */
 @Component

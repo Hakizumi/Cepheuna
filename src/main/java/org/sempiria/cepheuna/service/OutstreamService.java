@@ -7,7 +7,7 @@ import org.sempiria.cepheuna.dto.UserAudioRequest;
 /**
  * Output callback abstraction used by the server pipeline to push events to the browser.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @version 1.1.0
  * @author Sempiria
  */

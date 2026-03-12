@@ -5,39 +5,37 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.dto.ChatRequest;
 import org.sempiria.cepheuna.dto.ChatResponse;
-import org.sempiria.cepheuna.dto.EventingToolCallback;
 import org.sempiria.cepheuna.repository.storage.ConversationStore;
-import org.sempiria.cepheuna.tools.AgentTool;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.support.ToolCallbacks;
-import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Sinks;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Chat service.
  *
- * @since 2.0.0
- * @version 1.1.0
- * @author Sempiria
+ * <p>This stable revision avoids per-request tool re-registration.
+ * Tools are already registered globally in {@code AiConfig#chatClient(...)}
+ * through {@code builder.defaultTools(...)}. Registering them again here with
+ * {@code spec.tools(...)} or {@code spec.toolCallbacks(...)} causes Spring AI
+ * to see duplicated tool names in {@code ToolCallingChatOptions}.
+ *
+ * <p>Tool event streaming wrappers are intentionally removed in this version
+ * so the main voice pipeline stays stable. The assistant can still use tools
+ * via the globally configured ChatClient default tools.
  */
 @Service
 @Slf4j
 public class LLMService {
     private final ChatClient chatClient;
     private final ConversationStore conversationStore;
-    private final List<AgentTool> toolSource;
 
-    public LLMService(ChatClient chatClient, ConversationStore conversationStore, List<AgentTool> toolSource) {
+    public LLMService(ChatClient chatClient, ConversationStore conversationStore) {
         this.chatClient = chatClient;
         this.conversationStore = conversationStore;
-        this.toolSource = toolSource;
     }
 
     /**
@@ -53,43 +51,13 @@ public class LLMService {
                     .build());
         }
 
-        Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().unicast().onBackpressureBuffer();
         AtomicReference<String> last = new AtomicReference<>("");
 
-        Flux<ServerSentEvent<String>> tokenFlux;
-        if (toolSource != null && !toolSource.isEmpty()) {
-            ToolCallback[] baseTools = ToolCallbacks.from(toolSource);
-            ToolCallback[] eventTools = Arrays.stream(baseTools)
-                    .map((t) -> new EventingToolCallback(t, sink))
-                    .toArray(ToolCallback[]::new);
-
-            tokenFlux = chatClient.prompt()
-                    .toolCallbacks(eventTools)
-                    .messages(conversationStore.getConversationMemoryOrStorage(req.cid()).getMessages())
-                    .user(req.text())
-                    .stream()
-                    .content()
-                    .map((s) -> normalizeDelta(last, s))
-                    .filter((d) -> !d.isEmpty())
-                    .map((tok) -> ServerSentEvent.builder(tok).event("token").build());
-        }
-        else {
-            tokenFlux = chatClient.prompt()
-                    .messages(conversationStore.getConversationMemoryOrStorage(req.cid()).getMessages())
-                    .user(req.text())
-                    .stream()
-                    .content()
-                    .map((s) -> normalizeDelta(last, s))
-                    .filter((d) -> !d.isEmpty())
-                    .map((tok) -> ServerSentEvent.builder(tok).event("token").build());
-        }
-
-        Flux<ServerSentEvent<String>> toolFlux = sink.asFlux();
-        return Flux.merge(
+        return Flux.concat(
                 Flux.just(ServerSentEvent.builder("{\"state\":\"start\"}").event("status").build()),
-                tokenFlux,
-                toolFlux
-        ).concatWith(Flux.just(ServerSentEvent.builder("{\"state\":\"done\"}").event("status").build()));
+                buildStreamingTokenFlux(req, last),
+                Flux.just(ServerSentEvent.builder("{\"state\":\"done\"}").event("status").build())
+        );
     }
 
     /**
@@ -100,12 +68,11 @@ public class LLMService {
             return null;
         }
 
-        var response = chatClient.prompt()
-                .tools(toolSource)
+        ChatClientRequestSpec spec = chatClient.prompt()
                 .messages(conversationStore.getConversationMemoryOrStorage(req.cid()).getMessages())
-                .user(req.text())
-                .call();
+                .user(req.text());
 
+        var response = spec.call();
         return new ChatResponse(response.content());
     }
 
@@ -117,10 +84,40 @@ public class LLMService {
         log.debug("Cancelled current assistant stream. cid={}", cid);
     }
 
+    private @NonNull Flux<ServerSentEvent<String>> buildStreamingTokenFlux(
+            @NonNull ChatRequest req,
+            @NonNull AtomicReference<String> last
+    ) {
+        ChatClientRequestSpec spec = chatClient.prompt()
+                .messages(conversationStore.getConversationMemoryOrStorage(req.cid()).getMessages())
+                .user(req.text());
+
+        return spec.stream()
+                .content()
+                .map((s) -> normalizeDelta(last, s))
+                .filter((d) -> !d.isEmpty())
+                .map((tok) -> ServerSentEvent.builder(tok).event("token").build())
+                .onErrorResume((ex) -> {
+                    log.warn("LLM stream failed: {}", ex.getMessage(), ex);
+                    return Flux.just(ServerSentEvent.builder(
+                                    "{\"error\":\"" + escapeJson(ex.getMessage() == null ? "LLM stream failed." : ex.getMessage()) + "\"}")
+                            .event("status")
+                            .build());
+                });
+    }
+
     private @NonNull String normalizeDelta(@NonNull AtomicReference<String> last, @NonNull String current) {
         String prev = last.get();
         String delta = current.startsWith(prev) ? current.substring(prev.length()) : current;
         last.set(current);
         return delta;
+    }
+
+    private @NonNull String escapeJson(@NonNull String text) {
+        return text
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
     }
 }

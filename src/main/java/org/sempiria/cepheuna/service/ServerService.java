@@ -13,6 +13,7 @@ import org.sempiria.cepheuna.utils.AudioUtil;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.nio.ByteBuffer;
@@ -24,13 +25,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * End-to-end server pipeline:
  * STT -> LLM(stream) -> tokenizer -> TTS(stream) -> websocket.
  *
- * <p>This revision reduces perceived voice latency by letting the first sentence
- * use aggressive tokenization, and avoids accidental barge-in cancels caused by
- * tiny noise frames while the assistant is speaking.
- *
- * @since 3.0.2
- * @version 1.1.1
- * @author Sempiria
+ * <p>This version explicitly consumes reactive errors so Tomcat and Reactor do
+ * not emit secondary {@code onErrorDropped} noise after a session has already
+ * been closed or cancelled.
  */
 @Service
 @Slf4j
@@ -60,9 +57,6 @@ public class ServerService {
         this.streamingTokenizerServiceStore = streamingTokenizerServiceStore;
     }
 
-    /**
-     * Consume final user text and start an assistant turn.
-     */
     public void onUserText(@NonNull String cid, @NonNull String text, @NonNull OutstreamService outstreamService) {
         String normalized = text.trim();
         if (normalized.isEmpty()) {
@@ -74,9 +68,6 @@ public class ServerService {
         startAssistantTurn(conversation, normalized, outstreamService);
     }
 
-    /**
-     * Consume browser audio bytes.
-     */
     public void onUserVoice(@NonNull String cid, @NonNull ByteBuffer bytes, @NonNull OutstreamService outstreamService) {
         ConversationEntity conversation = conversationStore.getConversationMemoryOrStorage(cid);
 
@@ -131,9 +122,6 @@ public class ServerService {
         }
     }
 
-    /**
-     * Stop the current assistant turn immediately.
-     */
     public void stopConversation(@NonNull String cid, @NonNull OutstreamService outstreamService) {
         ConversationEntity conversation = conversationStore.getConversationMemoryOrStorage(cid);
 
@@ -192,8 +180,7 @@ public class ServerService {
         streamingTokenizerServiceStore.reset(cid);
         completeTtsPipeline(cid);
 
-        String utteranceId = cid + "-" + conversation.turnCounter.incrementAndGet() + "-" + UUID.randomUUID();
-        conversation.currentUtteranceId = utteranceId;
+        conversation.currentUtteranceId = cid + "-" + conversation.turnCounter.incrementAndGet() + "-" + UUID.randomUUID();
         conversation.segmentIndex = 0;
         conversation.lastPartial = "";
         conversation.setAssistantActive(true);
@@ -204,7 +191,7 @@ public class ServerService {
 
         TtsPipeline pipeline = createTtsPipeline(cid, outstreamService);
 
-        Disposable disposable = llmService.stream(new ChatRequest(text, cid))
+        conversation.currentAssistantSubscription = llmService.stream(new ChatRequest(text, cid))
                 .doOnNext((event) -> handleAssistantEvent(conversation, tokenizer, pipeline, outstreamService, event))
                 .doOnError((ex) -> {
                     tokenizer.flush((segment) -> enqueueTtsSegment(conversation, pipeline, outstreamService, segment));
@@ -221,9 +208,11 @@ public class ServerService {
                     conversation.setAssistantActive(false);
                     conversation.state = ConversationState.IDLE;
                 })
-                .subscribe();
-
-        conversation.currentAssistantSubscription = disposable;
+                .onErrorResume((ex) -> Flux.empty())
+                .subscribe(
+                        null,
+                        (ex) -> log.debug("Assistant stream already handled error. cid={}", cid, ex)
+                );
     }
 
     private void handleAssistantEvent(
@@ -284,7 +273,11 @@ public class ServerService {
                 )
                 .doOnError((ex) -> outstreamService.onError(cid, ex.getMessage() == null ? "TTS failed." : ex.getMessage()))
                 .doOnComplete(() -> outstreamService.onAssistantDone(cid))
-                .subscribe();
+                .onErrorResume((ex) -> Flux.empty())
+                .subscribe(
+                        null,
+                        (ex) -> log.debug("TTS pipeline already handled error. cid={}", cid, ex)
+                );
 
         TtsPipeline pipeline = new TtsPipeline(sink, disposable);
         ttsPipelines.put(cid, pipeline);

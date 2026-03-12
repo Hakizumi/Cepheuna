@@ -29,8 +29,8 @@ import java.util.List;
  * The browser then decodes WAV normally, which is much more stable than trying
  * to play arbitrary PCM stream fragments directly.
  *
- * @since 3.0.2
- * @version 1.2.0
+ * @since 1.0.0
+ * @version 1.1.0
  * @author Sempiria
  */
 @Service

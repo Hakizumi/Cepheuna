@@ -14,8 +14,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * <p>Defaults are tuned for low-latency streaming ASR:
  * 16kHz mono PCM16, 20ms frames, bounded queues, and short finalize timeouts.
  *
- * @since 2.0.0
- * @version 1.1.0
+ * @since 1.0.0
+ * @version 1.0.1
  * @author Sempiria
  */
 @ConfigurationProperties("cepheuna.audio")
@@ -49,20 +49,6 @@ public class AudioProperties {
         int bytesPerSample = Math.max(1, bitDepth / 8);
         return getSamplesPerFrame() * bytesPerSample * channels;
     }
-
-    // ====== sherpa-onnx (online transducer) model config ======
-
-    /// Path to encoder onnx file
-    private String sherpaEncoder;
-
-    /// Path to decoder onnx file
-    private String sherpaDecoder;
-
-    /// Path to joiner onnx file
-    private String sherpaJoiner;
-
-    /// Path to tokens.txt
-    private String sherpaTokens;
 
     // ====== ASR properties ======
 

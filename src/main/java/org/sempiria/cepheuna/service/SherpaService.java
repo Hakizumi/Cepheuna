@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.config.AudioProperties;
+import org.sempiria.cepheuna.config.ModelProperties;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -24,34 +25,37 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>The Java bindings vary a little across versions, so this service uses reflection
  * for the hot-path API calls while still keeping the configured model types explicit.
  *
- * @since 3.0.0
- * @version 1.1.0
+ * @since 1.0.0
+ * @version 1.0.1
  * @author Sempiria
  */
 @Component
 @Slf4j
 public class SherpaService {
-    private final AudioProperties props;
+    private final AudioProperties audioProperties;
+    private final ModelProperties modelProperties;
+
     private final Map<String, Map.Entry<OnlineRecognizer, OnlineStream>> sherpaEntries = new ConcurrentHashMap<>();
     private OnlineRecognizerConfig config;
 
-    protected SherpaService(AudioProperties props) {
-        this.props = props;
+    protected SherpaService(AudioProperties audioProperties, ModelProperties modelProperties) {
+        this.audioProperties = audioProperties;
+        this.modelProperties = modelProperties;
     }
 
     @PostConstruct
     private void init() {
-        String encoder = props.getSherpaEncoder();
-        String decoder = props.getSherpaDecoder();
-        String joiner = props.getSherpaJoiner();
-        String tokens = props.getSherpaTokens();
+        String encoder = modelProperties.getStt().getEncoderFilePath();
+        String decoder = modelProperties.getStt().getDecoderFilePath();
+        String joiner = modelProperties.getStt().getJoinerFilePath();
+        String tokens = modelProperties.getStt().getTokenFilePath();
 
         Objects.requireNonNull(encoder);
         Objects.requireNonNull(decoder);
         Objects.requireNonNull(joiner);
         Objects.requireNonNull(tokens);
 
-        int numThreads = Math.max(1, props.getAsrThreads());
+        int numThreads = Math.max(1, audioProperties.getAsrThreads());
 
         OnlineTransducerModelConfig transducer = OnlineTransducerModelConfig.builder()
                 .setEncoder(encoder)

@@ -15,7 +15,7 @@ import java.util.List;
  * Spring configuration class
  *
  * @since 1.0.0
- * @version 1.0.0
+ * @version 1.0.1
  * @author Sempiria
  */
 @Configuration
@@ -32,7 +32,7 @@ public class AiConfig {
                 You are a voice-first AI assistant that helps users complete tasks through natural conversation and tool use.
                 Your primary job is to understand the user’s intent, decide whether a tool is needed, use tools when appropriate, and respond in a way that is concise, natural, and easy to listen to.
                 
-                Your name: Voiceagent
+                Your name: Cepheuna
                 Your current version: %s
                 Who makes you: Hakizumi
                 
@@ -163,7 +163,7 @@ public class AiConfig {
             return builder
                     .defaultSystem(prompt)
                     // Register tools
-                    .defaultTools(tools)
+                    .defaultTools(tools.toArray())
                     .build();
         }
         return builder

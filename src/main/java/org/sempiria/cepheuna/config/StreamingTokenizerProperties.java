@@ -5,6 +5,15 @@ import lombok.Setter;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * LLM output tokenizer streamly configuration properties for {@link org.sempiria.cepheuna.service.StreamingTokenizerService}.
+ *
+ * @see org.sempiria.cepheuna.service.StreamingTokenizerService
+ *
+ * @since 1.0.0
+ * @version 1.0.0
+ * @author Sempiria
+ */
 @ConfigurationProperties("cepheuna.tokenizer")
 @Getter
 @Setter
