@@ -152,12 +152,12 @@ public class AudioService {
 
     private byte @NonNull [] concat(@NonNull List<byte[]> chunks) {
         int total = 0;
-        for (byte[] chunk : chunks) {
+        for (byte @NonNull [] chunk : chunks) {
             total += chunk.length;
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream(total);
-        for (byte[] chunk : chunks) {
+        for (byte @NonNull [] chunk : chunks) {
             out.write(chunk, 0, chunk.length);
         }
         return out.toByteArray();

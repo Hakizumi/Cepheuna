@@ -259,7 +259,7 @@ public class ServerService {
             existing.dispose();
         }
 
-        Sinks.Many<UserAudioRequest> sink = Sinks.many().unicast().onBackpressureBuffer();
+        Sinks.@NonNull Many<UserAudioRequest> sink = Sinks.many().unicast().onBackpressureBuffer();
         Disposable disposable = sink.asFlux()
                 .concatMap((req) -> audioService.ttsStream(req.text())
                         .doOnNext((chunk) -> outstreamService.onAssistantAudioChunk(

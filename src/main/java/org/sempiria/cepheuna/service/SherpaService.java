@@ -1,10 +1,6 @@
 package org.sempiria.cepheuna.service;
 
-import com.k2fsa.sherpa.onnx.OnlineModelConfig;
-import com.k2fsa.sherpa.onnx.OnlineRecognizer;
-import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig;
-import com.k2fsa.sherpa.onnx.OnlineStream;
-import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig;
+import com.k2fsa.sherpa.onnx.*;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -113,7 +109,7 @@ public class SherpaService {
                 return "";
             }
 
-            for (String methodName : new String[]{"getText", "text"}) {
+            for (@NonNull String methodName : new String[]{"getText", "text"}) {
                 try {
                     Method method = result.getClass().getMethod(methodName);
                     Object value = method.invoke(result);
@@ -165,7 +161,7 @@ public class SherpaService {
 
     @PreDestroy
     public void destroy() {
-        for (Map.Entry<OnlineRecognizer, OnlineStream> entry : sherpaEntries.values()) {
+        for (Map.@NonNull Entry<OnlineRecognizer, OnlineStream> entry : sherpaEntries.values()) {
             safeRelease(entry.getValue());
             safeRelease(entry.getKey());
         }

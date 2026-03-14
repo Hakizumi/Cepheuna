@@ -22,7 +22,7 @@
 
 ### First -- Configure your openai-api-url and api-key
 
-#### In application.yml:
+#### In `application.yml`:
 ```yaml
 spring:
   ai:
@@ -69,51 +69,31 @@ mvn spring-boot:run
 ## How to use? ( For users )
 ### Prepare -- Requires
 * JRE >= 21
-* Sherpa Onnx Runtime Lib ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
-* K2fsa Models ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
 
-### First -- Download latest version of Cepheuna jar on [Cepheuna-releases](https://github.com/Hakizumi/Cepheuna/releases),and move it to a proper path
+#### To download `JRE` ( `Java runtime environment` ),see [ORACLE-JDK-releases](https://www.oracle.com/java/technologies/downloads/)
+#### Run in shell:
+```shell
+java --version
+```
+#### If java version is printed successfully,that means JRE is deployed successfully.
 
-### Second -- Create application.yml
-#### Create a folder 'config' by the jar file
-#### In ./config,create a file: 'application.yml'
-#### In ./config/application.yml
+### First -- Download latest version of Cepheuna one-click deployment package on [Cepheuna-releases](https://github.com/Hakizumi/Cepheuna/releases),and move it to a proper path
+
+### Second -- Unzip the Cepheuna one-click deployment package
+#### In `./config/application.yml`
 ```yaml
 spring:
   ai:
     openai:
-      api-key: sk-xxxx  # Enter your api-key,if it is in environment or running in docker,use ${OPENAI_API_KEY} instead
+      api-key: sk-xxxx  # Enter your api-key,must configure
       base-url: https://api.openai.com   # Api url,you can replace it with your own transit station
-
-cepheuna:
-  models:
-    stt:
-      token-file-path: models/stt/tokens.txt  # tokens file
-    
-      # After unzip,you will see a set of files with similar names
-      # Compared with the ordinary model, the int8 model increases the recognition speed, but the accuracy is slightly worse 
-      # Use int8 model if you focus more on low latency ( Recommended )
-      joiner-file-path: models/stt/joiner-epoch-99-avg-1.int8.onnx
-      encoder-file-path: models/stt/encoder-epoch-99-avg-1.int8.onnx
-      decoder-file-path: models/stt/decoder-epoch-99-avg-1.int8.onnx
-    
-    tts:
-      # tts is similar
-      token-file-path: models/tts/tokens.txt
-      joiner-file-path: models/tts/joiner-epoch-99-avg-1.int8.onnx
-      encoder-file-path: models/tts/encoder-epoch-99-avg-1.int8.onnx
-      decoder-file-path: models/tts/decoder-epoch-99-avg-1.int8.onnx
 ```
-#### To deploy sherpa-onnx models,see [sherpa-onnx-deployment-guild](sherpa-onnx-deployment-guild.md)
 
 #### And you can cover the configuration entries.( see [Configurable entries](README.md#configurable-entries) )
 
 ### Third -- Run the jar-file
-#### In cmd:
-```shell
-cd <the folder the jar file in>
-java -jar cepheuna-x.x.x.jar
-```
+#### If you are `Windows`,double-click the `start-windows.bat`
+#### If you are `Mac/Linux`,double-click the `start-mac-linux.sh`
 
 ### Forth -- Talk with **Cepheuna**
 #### Open your browser ( Any one is ok ) and access http://localhost:11622/
@@ -123,7 +103,7 @@ java -jar cepheuna-x.x.x.jar
 ---
 
 ## Configurable entries
-### In application.yml
+### In `application.yml`
 ```yaml
 server:
   port: 11622   # server port,default 11622 ( spring )
@@ -190,9 +170,10 @@ cepheuna:
     io-tools:
       # see org.sempiria.cepheuna.tools.IOTools
       whitelist-paths: /    # All
-      blacklist-paths: C:/Windows    
-      io-mode: WHITELIST   # WHITELIST or BLACKLIST,on WHITELIST,blacklist-paths will not enable,and vice versa
+      blacklist-paths: C:/Windows  # blacklist paths ( model cannot access )
 
+      # If the whitelist and blacklist have duplicated entries, an IllegalArgumentException will be reported
+      
 logging:
   level:
     root: info
@@ -204,5 +185,6 @@ logging:
 ## About **Cepheuna**
 * Github: https://github.com/Hakizumi/Cepheuna
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
-* Contributors: Hakizumi
-* Version: 1.1.2
+* Developer: `Hakizumi`
+* Contributors: None :(
+* Version: 1.1.3

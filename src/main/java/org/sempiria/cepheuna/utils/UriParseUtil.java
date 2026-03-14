@@ -35,7 +35,7 @@ public class UriParseUtil {
         }
 
         String[] pairs = query.split("&");
-        for (String pair : pairs) {
+        for (@NonNull String pair : pairs) {
             String[] kv = pair.split("=", 2);
             String key = kv[0];
             String value = kv.length > 1 ? kv[1] : "";

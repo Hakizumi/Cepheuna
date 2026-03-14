@@ -66,7 +66,7 @@ public class SystemTools implements AgentTool {
             description = "Get a system environment value by key."
     )
     public String getSystemEnvValue(
-            @ToolParam(description = "Target environment variable key") String key
+            @ToolParam(description = "Target environment variable key") @NonNull String key
     ) {
         validateKey(key);
         return System.getenv(key);
@@ -170,8 +170,8 @@ public class SystemTools implements AgentTool {
      * @param key the key to validate
      * @throws IllegalArgumentException if the key is null or blank
      */
-    private void validateKey(String key) {
-        if (key == null || key.isBlank()) {
+    private void validateKey(@NonNull String key) {
+        if (key.isBlank()) {
             throw new IllegalArgumentException("Key must not be null or blank");
         }
     }
@@ -187,7 +187,7 @@ public class SystemTools implements AgentTool {
      * @return a non-null map containing only non-null entries
      * @throws IllegalArgumentException if the number of arguments is odd
      */
-    private @NonNull Map<String, String> mapOfNonNull(String... keyValues) {
+    private @NonNull Map<String, String> mapOfNonNull(String @NonNull ... keyValues) {
         Objects.requireNonNull(keyValues, "keyValues must not be null");
         if (keyValues.length % 2 != 0) {
             throw new IllegalArgumentException("keyValues length must be even");
