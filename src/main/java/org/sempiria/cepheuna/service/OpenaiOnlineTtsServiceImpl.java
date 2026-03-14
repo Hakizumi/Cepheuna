@@ -7,7 +7,6 @@ import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.utils.AudioUtil;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
-import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.ByteArrayOutputStream;
@@ -29,13 +28,12 @@ import java.util.List;
  * The browser then decodes WAV normally, which is much more stable than trying
  * to play arbitrary PCM stream fragments directly.
  *
- * @since 1.0.0
- * @version 1.1.0
+ * @since 1.2.0
+ * @version 1.0.0
  * @author Sempiria
  */
-@Service
 @Slf4j
-public class AudioService {
+public class OpenaiOnlineTtsServiceImpl implements TtsService {
     /**
      * This project's browser playback path assumes mono PCM16 wrapped in WAV.
      */
@@ -45,7 +43,7 @@ public class AudioService {
 
     private final OpenAiAudioSpeechModel speechModel;
 
-    public AudioService(OpenAiAudioSpeechModel speechModel) {
+    public OpenaiOnlineTtsServiceImpl(OpenAiAudioSpeechModel speechModel) {
         this.speechModel = speechModel;
     }
 
@@ -62,6 +60,7 @@ public class AudioService {
      * @param text input text
      * @return a single WAV payload as a Flux with one element
      */
+    @Override
     public @NonNull Flux<byte[]> ttsStream(@NonNull String text) {
         String normalized = text.trim();
         if (normalized.isEmpty()) {
@@ -82,6 +81,7 @@ public class AudioService {
     /**
      * Browser playback format. The front-end should use decodeAudioData for this.
      */
+    @Override
     public @NonNull String outputFormat() {
         return "wav";
     }

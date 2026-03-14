@@ -79,7 +79,7 @@ function rewriteLastLines(prefix: string, next: string): void {
 }
 
 function currentCid(): string {
-  return cidEl.value.trim() || 'demo-browser';
+  return cidEl.value.trim() || 'dev';
 }
 
 function buildWsUrl(): string {

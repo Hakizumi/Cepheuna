@@ -3,19 +3,21 @@ package org.sempiria.cepheuna.config;
 import lombok.Getter;
 import lombok.Setter;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Online / Native model configuration properties
  *
  * @since 1.1.0
- * @version 1.0.0
- * @author Sempiria */
+ * @version 1.0.1
+ * @author Sempiria
+ */
 @ConfigurationProperties("cepheuna.models")
 @Getter
 @Setter
 public class ModelProperties {
-    private @NonNull Tts tts = new Tts();
+    private @Nullable Tts tts = null;
     private @NonNull Stt stt = new Stt();
 
     /**
@@ -24,10 +26,10 @@ public class ModelProperties {
     @Getter
     @Setter
     public static class Tts {
-        private @NonNull String tokenFilePath = "models/tts/tokens.txt";
-        private @NonNull String joinerFilePath = "models/tts/joiner-epoch-99-avg-1.int8.onnx";
-        private @NonNull String encoderFilePath = "models/tts/encoder-epoch-99-avg-1.int8.onnx";
-        private @NonNull String decoderFilePath = "models/tts/decoder-epoch-99-avg-1.int8.onnx";
+        private @Nullable String tokenFilePath = null;
+        private @Nullable String voicesFilePath = null;
+        private @Nullable String modelFilePath = null;
+        private @Nullable String dataPath = null;
     }
 
     /**

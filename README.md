@@ -151,10 +151,12 @@ cepheuna:
       decoder-file-path: models/stt/decoder-epoch-99-avg-1.int8.onnx
 
     tts:
+      # If not configure the 'tts' branch,or any following entries is null
+      # Cepheuna will choose online text to speech mode ( Call online openai model )
       token-file-path: models/tts/tokens.txt
-      joiner-file-path: models/tts/joiner-epoch-99-avg-1.int8.onnx
-      encoder-file-path: models/tts/encoder-epoch-99-avg-1.int8.onnx
-      decoder-file-path: models/tts/decoder-epoch-99-avg-1.int8.onnx
+      voices-file-path: models/tts/voices.bin
+      model-file-path: models/tts/model.onnx
+      data-path: models/tts/espeak-ng-data
 
   tokenizer:
     # see org.sempiria.cepheuna.config.StreamingTokenizerProperties
@@ -187,4 +189,4 @@ logging:
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
 * Developer: `Hakizumi`
 * Contributors: None :(
-* Version: 1.1.3
+* Version: 1.2.0-beta
