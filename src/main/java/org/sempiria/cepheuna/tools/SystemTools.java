@@ -1,5 +1,6 @@
 package org.sempiria.cepheuna.tools;
 
+import org.jspecify.annotations.NonNull;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -30,7 +31,7 @@ public class SystemTools implements AgentTool {
     }
 
     @Tool(description = "Get native system properties ( java runtime environment properties )")
-    public Map<String, String> getSystemProperties() {
+    public @NonNull Map<String, String> getSystemProperties() {
         return Map.of(
                 "os.name",System.getProperty("os.name"),
                 "os.version",System.getProperty("os.version"),
@@ -39,7 +40,7 @@ public class SystemTools implements AgentTool {
     }
 
     @Tool(description = "Get current native user properties")
-    public Map<String,String> getUserProperties() {
+    public @NonNull Map<String,String> getUserProperties() {
         return Map.of(
                 "user.name",System.getProperty("user.name"),
                 "user.home",System.getProperty("user.home"),
@@ -48,7 +49,7 @@ public class SystemTools implements AgentTool {
     }
 
     @Tool(description = "Get host address properties")
-    public Map<String,String> getAddressProperties() {
+    public @NonNull Map<String,String> getAddressProperties() {
         try {
             InetAddress addr = InetAddress.getLocalHost();
 

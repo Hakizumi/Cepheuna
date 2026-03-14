@@ -8,6 +8,7 @@ import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.config.AudioProperties;
@@ -171,7 +172,7 @@ public class SherpaService {
         sherpaEntries.clear();
     }
 
-    private Map.@NonNull Entry<OnlineRecognizer, OnlineStream> newEntry(String cid) {
+    private Map.@NonNull @Unmodifiable Entry<OnlineRecognizer, OnlineStream> newEntry(String cid) {
         OnlineRecognizer recognizer = new OnlineRecognizer(config);
         OnlineStream stream = recognizer.createStream();
         return Map.entry(recognizer, stream);
@@ -182,7 +183,6 @@ public class SherpaService {
             try {
                 Method m = stream.getClass().getMethod("acceptWaveform", int.class, float[].class);
                 m.invoke(stream, sampleRate, samples);
-                return;
             }
             catch (NoSuchMethodException ignored) {
                 Method m = stream.getClass().getMethod("acceptWaveform", float[].class, int.class);

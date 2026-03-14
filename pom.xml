@@ -12,7 +12,7 @@
 
     <groupId>org.sempiria</groupId>
     <artifactId>cepheuna</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <name>cepheuna</name>
 
     <properties>
@@ -54,19 +54,16 @@
         </dependency>
 
         <dependency>
-            <groupId>com.k2fsa.sherpa.onnx</groupId>
-            <artifactId>sherpa-onnx</artifactId>
-            <version>1.12.28</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/sherpa-onnx-v1.12.28.jar</systemPath>
+            <groupId>com.litongjava</groupId>
+            <artifactId>sherpa-onnx-java-api</artifactId>
+            <version>1.0.1</version>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>com.k2fsa.sherpa.onnx</groupId>
-            <artifactId>sherpa-onnx-native-lib-win</artifactId>
+            <artifactId>sherpa-onnx-native-lib-win-x64</artifactId>
             <version>1.12.28</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/sherpa-onnx-native-lib-win-x64-v1.12.28.jar</systemPath>
         </dependency>
 
         <dependency>

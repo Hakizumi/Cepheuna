@@ -18,6 +18,8 @@
 * Sherpa Onnx Runtime Lib ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
 * K2fsa Models ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
 
+#### To deploy sherpa-onnx models and runtime lib,see [sherpa-onnx-deployment-guild](sherpa-onnx-deployment-guild.md)
+
 ### First -- Configure your openai-api-url and api-key
 
 #### In application.yml:
@@ -82,7 +84,28 @@ spring:
     openai:
       api-key: sk-xxxx  # Enter your api-key,if it is in environment or running in docker,use ${OPENAI_API_KEY} instead
       base-url: https://api.openai.com   # Api url,you can replace it with your own transit station
+
+cepheuna:
+  models:
+    stt:
+      token-file-path: models/stt/tokens.txt  # tokens file
+    
+      # After unzip,you will see a set of files with similar names
+      # Compared with the ordinary model, the int8 model increases the recognition speed, but the accuracy is slightly worse 
+      # Use int8 model if you focus more on low latency ( Recommended )
+      joiner-file-path: models/stt/joiner-epoch-99-avg-1.int8.onnx
+      encoder-file-path: models/stt/encoder-epoch-99-avg-1.int8.onnx
+      decoder-file-path: models/stt/decoder-epoch-99-avg-1.int8.onnx
+    
+    tts:
+      # tts is similar
+      token-file-path: models/tts/tokens.txt
+      joiner-file-path: models/tts/joiner-epoch-99-avg-1.int8.onnx
+      encoder-file-path: models/tts/encoder-epoch-99-avg-1.int8.onnx
+      decoder-file-path: models/tts/decoder-epoch-99-avg-1.int8.onnx
 ```
+#### To deploy sherpa-onnx models,see [sherpa-onnx-deployment-guild](sherpa-onnx-deployment-guild.md)
+
 #### And you can cover the configuration entries.( see [Configurable entries](README.md#configurable-entries) )
 
 ### Third -- Run the jar-file
@@ -96,52 +119,6 @@ java -jar cepheuna-x.x.x.jar
 #### Open your browser ( Any one is ok ) and access http://localhost:11622/
 #### If you have seen the page,that means **Cepheuna** is running healthy.
 #### If not,check the program is running, the url you enter is correct,and you do configure port 11622.If you change your port, you should also change the URL you enter.
-
-### 2.Configure Sherpa native lib dependencies
-```xml
-<dependency>
-    <groupId>com.k2fsa.sherpa.onnx</groupId>
-    <artifactId>sherpa-onnx</artifactId>
-    <version>sherpa-version</version>
-    <scope>system</scope>
-    <systemPath>${project.basedir}/lib/sherpa-onnx-v1.12.28.jar</systemPath>
-</dependency>
-
-<dependency>
-    <groupId>com.k2fsa.sherpa.onnx</groupId>
-    <artifactId>sherpa-onnx-native-lib-win</artifactId>
-    <version>sherpa-version</version>
-    <scope>system</scope>
-    <systemPath>${project.basedir}/lib/sherpa-onnx-native-lib-win-x64-v1.12.28.jar</systemPath>
-</dependency>
-```
-### 3.Go to https://github.com/k2-fsa/sherpa-onnx/releases/ and download the latest suitable sherpa model for your computer ( sherpa-onnx-vxxx-xxx-xxx.tar.bz2 )
-
-### 4.Unzip the tar.bz file and copy all files to ./models/stt | tts
-
-### 5.In application.yml:
-```yaml
-cepheuna:
-  models:
-    stt:
-      token-file-path: models/stt/tokens.txt  # tokens file
-      
-      # After unzip,you will see a set of files with similar names
-      # Compared with the ordinary model, the int8 model increases the recognition speed, but the accuracy is slightly worse 
-      # Use int8 model if you focus more on low latency ( Recommended )
-      joiner-file-path: models/stt/joiner-epoch-99-avg-1.int8.onnx
-      encoder-file-path: models/stt/encoder-epoch-99-avg-1.int8.onnx
-      decoder-file-path: models/stt/decoder-epoch-99-avg-1.int8.onnx
-
-    tts:
-      # tts is similar
-      token-file-path: models/tts/tokens.txt 
-      joiner-file-path: models/tts/joiner-epoch-99-avg-1.int8.onnx
-      encoder-file-path: models/tts/encoder-epoch-99-avg-1.int8.onnx
-      decoder-file-path: models/tts/decoder-epoch-99-avg-1.int8.onnx
-```
-
----
 
 ## Configurable entries
 ### In application.yml
