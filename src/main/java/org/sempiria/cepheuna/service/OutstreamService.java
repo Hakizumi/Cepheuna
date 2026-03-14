@@ -12,6 +12,20 @@ import org.springframework.http.codec.ServerSentEvent;
  * @author Sempiria
  */
 public interface OutstreamService {
+    OutstreamService NOOP_OUTSTREAM = new OutstreamService() {
+        @Override
+        public void onUserPartialText(@NonNull UserAudioRequest request) {
+        }
+
+        @Override
+        public void onUserFinalText(@NonNull UserAudioRequest request) {
+        }
+
+        @Override
+        public void onAssistantEvent(@NonNull ServerSentEvent<String> event) {
+        }
+    };
+
     /**
      * User STT partial text.
      */
@@ -23,7 +37,7 @@ public interface OutstreamService {
     void onUserFinalText(@NonNull UserAudioRequest request);
 
     /**
-     * Assistant text/token/status event, usually bridged from {@link LLMService}.
+     * Assistant text/token/status event, usually bridged from {@link OpenaiOnlineLLMServiceImpl}.
      */
     void onAssistantEvent(@NonNull ServerSentEvent<String> event);
 

@@ -1,19 +1,17 @@
 package org.sempiria.cepheuna.service;
 
-import com.k2fsa.sherpa.onnx.*;
-import jakarta.annotation.PostConstruct;
+import com.k2fsa.sherpa.onnx.OnlineRecognizer;
+import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig;
+import com.k2fsa.sherpa.onnx.OnlineStream;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
-import org.sempiria.cepheuna.config.AudioProperties;
-import org.sempiria.cepheuna.config.ModelProperties;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -23,56 +21,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * for the hot-path API calls while still keeping the configured model types explicit.
  *
  * @since 1.0.0
- * @version 1.0.1
+ * @version 1.1.0
  * @author Sempiria
  */
 @Component
 @Slf4j
-public class SherpaService {
-    private final AudioProperties audioProperties;
-    private final ModelProperties modelProperties;
-
+public class SherpaOnnxSttService {
     private final Map<String, Map.Entry<OnlineRecognizer, OnlineStream>> sherpaEntries = new ConcurrentHashMap<>();
-    private OnlineRecognizerConfig config;
+    private final OnlineRecognizerConfig config;
 
-    protected SherpaService(AudioProperties audioProperties, ModelProperties modelProperties) {
-        this.audioProperties = audioProperties;
-        this.modelProperties = modelProperties;
-    }
-
-    @PostConstruct
-    private void init() {
-        String encoder = modelProperties.getStt().getEncoderFilePath();
-        String decoder = modelProperties.getStt().getDecoderFilePath();
-        String joiner = modelProperties.getStt().getJoinerFilePath();
-        String tokens = modelProperties.getStt().getTokenFilePath();
-
-        Objects.requireNonNull(encoder);
-        Objects.requireNonNull(decoder);
-        Objects.requireNonNull(joiner);
-        Objects.requireNonNull(tokens);
-
-        int numThreads = Math.max(1, audioProperties.getAsrThreads());
-
-        OnlineTransducerModelConfig transducer = OnlineTransducerModelConfig.builder()
-                .setEncoder(encoder)
-                .setDecoder(decoder)
-                .setJoiner(joiner)
-                .build();
-
-        OnlineModelConfig modelConfig = OnlineModelConfig.builder()
-                .setTransducer(transducer)
-                .setTokens(tokens)
-                .setNumThreads(numThreads)
-                .setDebug(false)
-                .build();
-
-        config = OnlineRecognizerConfig.builder()
-                .setOnlineModelConfig(modelConfig)
-                .setDecodingMethod("greedy_search")
-                .build();
-
-        log.info("Sherpa online recognizer initialized. threads={}", numThreads);
+    protected SherpaOnnxSttService(OnlineRecognizerConfig config) {
+        this.config = config;
     }
 
     public OnlineRecognizer getRecognizer(String cid) {

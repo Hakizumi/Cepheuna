@@ -28,14 +28,18 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>This version explicitly consumes reactive errors so Tomcat and Reactor do
  * not emit secondary {@code onErrorDropped} noise after a session has already
  * been closed or cancelled.
+ *
+ * @since 1.0.0
+ * @version 1.0.2
+ * @author Sempiria
  */
 @Service
 @Slf4j
 public class ServerService {
     private final ConversationStore conversationStore;
     private final LLMService llmService;
-    private final AudioService audioService;
-    private final SherpaService sherpaService;
+    private final TtsService ttsService;
+    private final SherpaOnnxSttService sherpaSttService;
     private final AudioProperties audioProperties;
     private final StreamingTokenizerServiceStore streamingTokenizerServiceStore;
 
@@ -44,15 +48,15 @@ public class ServerService {
     public ServerService(
             ConversationStore conversationStore,
             LLMService llmService,
-            AudioService audioService,
-            SherpaService sherpaService,
+            TtsService ttsService,
+            SherpaOnnxSttService sherpaSttService,
             AudioProperties audioProperties,
             StreamingTokenizerServiceStore streamingTokenizerServiceStore
     ) {
         this.conversationStore = conversationStore;
         this.llmService = llmService;
-        this.audioService = audioService;
-        this.sherpaService = sherpaService;
+        this.ttsService = ttsService;
+        this.sherpaSttService = sherpaSttService;
         this.audioProperties = audioProperties;
         this.streamingTokenizerServiceStore = streamingTokenizerServiceStore;
     }
@@ -86,8 +90,8 @@ public class ServerService {
             stopConversation(cid, outstreamService);
         }
 
-        sherpaService.acceptWaveform(cid, samples, audioProperties.getSampleRate());
-        String partial = sherpaService.getText(cid);
+        sherpaSttService.acceptWaveform(cid, samples, audioProperties.getSampleRate());
+        String partial = sherpaSttService.getText(cid);
 
         if (speaking) {
             if (conversation.state != ConversationState.LISTENING) {
@@ -113,7 +117,7 @@ public class ServerService {
                 outstreamService.onUserPartialText(new UserAudioRequest(partial, cid, null, conversation.segmentIndex));
             }
 
-            boolean endpoint = sherpaService.isEndpoint(cid)
+            boolean endpoint = sherpaSttService.isEndpoint(cid)
                     || conversation.silenceFrames >= audioProperties.getSilenceTriggerFrame();
 
             if (endpoint) {
@@ -139,14 +143,14 @@ public class ServerService {
         outstreamService.stop();
         outstreamService.onStopped(cid);
 
-        sherpaService.reset(cid);
+        sherpaSttService.reset(cid);
     }
 
     private void finalizeUserSpeech(@NonNull ConversationEntity conversation, @NonNull OutstreamService outstreamService) {
         String cid = conversation.getCid();
-        String finalText = sherpaService.getText(cid).trim();
+        String finalText = sherpaSttService.getText(cid).trim();
 
-        sherpaService.reset(cid);
+        sherpaSttService.reset(cid);
 
         long speechFrames = conversation.speechFrames;
         conversation.silenceFrames = 0;
@@ -261,13 +265,13 @@ public class ServerService {
 
         Sinks.@NonNull Many<UserAudioRequest> sink = Sinks.many().unicast().onBackpressureBuffer();
         Disposable disposable = sink.asFlux()
-                .concatMap((req) -> audioService.ttsStream(req.text())
+                .concatMap((req) -> ttsService.ttsStream(req.text())
                         .doOnNext((chunk) -> outstreamService.onAssistantAudioChunk(
                                 req.cid(),
                                 req.utteranceId() == null ? "" : req.utteranceId(),
                                 req.segmentIndex(),
                                 chunk,
-                                audioService.outputFormat()
+                                ttsService.outputFormat()
                         ))
                         .then()
                 )

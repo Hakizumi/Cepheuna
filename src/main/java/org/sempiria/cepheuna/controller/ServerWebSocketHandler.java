@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.sempiria.cepheuna.service.OutstreamService.NOOP_OUTSTREAM;
+
 /**
  * Browser websocket endpoint.
  *
@@ -35,23 +37,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *     server cleanup uses a no-op outstream, so no more messages are attempted
  *     on the dead session.</li>
  * </ol>
+ *
+ * @since 1.0.0
+ * @version 1.1.0
+ * @author Sempiria
  */
 @Component
 public class ServerWebSocketHandler extends AbstractWebSocketHandler {
-    private static final OutstreamService NOOP_OUTSTREAM = new OutstreamService() {
-        @Override
-        public void onUserPartialText(@NonNull UserAudioRequest request) {
-        }
-
-        @Override
-        public void onUserFinalText(@NonNull UserAudioRequest request) {
-        }
-
-        @Override
-        public void onAssistantEvent(@NonNull ServerSentEvent<String> event) {
-        }
-    };
-
     private final ServerService serverService;
     private final ObjectMapper objectMapper;
     private final Map<String, SessionOutstreamService> outstreams = new ConcurrentHashMap<>();

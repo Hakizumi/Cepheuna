@@ -47,7 +47,7 @@ function rewriteLastLines(prefix, next) {
     log(`${prefix}${next}`);
 }
 function currentCid() {
-    return cidEl.value.trim() || 'demo-browser';
+    return cidEl.value.trim() || 'dev';
 }
 function buildWsUrl() {
     const raw = wsUrlEl.value.trim();

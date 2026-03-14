@@ -61,7 +61,7 @@ public class IOTools implements AgentTool {
      *
      * @throws IllegalArgumentException if duplicate configured paths exist
      */
-    public IOTools(IOToolsProperties props) {
+    public IOTools(@NonNull IOToolsProperties props) {
         List<String> safeWhitelist = props.whitelist == null ? List.of() : props.whitelist;
         List<String> safeBlacklist = props.blacklist == null ? List.of() : props.blacklist ;
 

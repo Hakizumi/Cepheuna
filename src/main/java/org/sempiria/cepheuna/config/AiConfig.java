@@ -1,10 +1,15 @@
 package org.sempiria.cepheuna.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.sempiria.cepheuna.service.OpenaiOnlineTtsServiceImpl;
+import org.sempiria.cepheuna.service.SherpaOnnxTtsServiceImpl;
+import org.sempiria.cepheuna.service.TtsService;
 import org.sempiria.cepheuna.tools.AgentTool;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +24,7 @@ import java.util.List;
  * @author Sempiria
  */
 @Configuration
+@Slf4j
 public class AiConfig {
     @Bean
     public @NonNull ChatClient chatClient(
@@ -174,5 +180,32 @@ public class AiConfig {
     @Bean
     public @NonNull ObjectMapper objectMapper() {
         return new ObjectMapper();
+    }
+
+    @Bean
+    public @NonNull TtsService ttsService(@NonNull ModelProperties props,
+                                          @NonNull SherpaConfig sherpaConfig,
+                                          OpenAiAudioSpeechModel speechModel
+    ) {
+        int nullCount = 0;
+
+        if (props.getTts() != null) {
+            nullCount += props.getTts().getTokenFilePath() == null ? 1 : 0;
+            nullCount += props.getTts().getVoicesFilePath() == null ? 1 : 0;
+            nullCount += props.getTts().getModelFilePath() == null ? 1 : 0;
+            nullCount += props.getTts().getDataPath() == null ? 1 : 0;
+        }
+        else {
+            nullCount += 1;
+        }
+
+        if (nullCount == 0) {
+            log.info("Uses native tts service ( SherpaOnnxTtsServiceImpl )");
+            return new SherpaOnnxTtsServiceImpl(sherpaConfig.offlineTts(props));
+        }
+        else {
+            log.info("Uses online tts service ( OpenaiOnlineTtsServiceImpl )");
+            return new OpenaiOnlineTtsServiceImpl(speechModel);
+        }
     }
 }
