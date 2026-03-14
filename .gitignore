@@ -39,3 +39,7 @@ lib/
 
 mvnw.cmd
 mvnw
+
+.gitattributes
+cepheuna.iml
+dependency-reduced-pom.xml

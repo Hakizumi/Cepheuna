@@ -120,6 +120,8 @@ java -jar cepheuna-x.x.x.jar
 #### If you have seen the page,that means **Cepheuna** is running healthy.
 #### If not,check the program is running, the url you enter is correct,and you do configure port 11622.If you change your port, you should also change the URL you enter.
 
+---
+
 ## Configurable entries
 ### In application.yml
 ```yaml
@@ -182,6 +184,14 @@ cepheuna:
     hard-length: 160
     min-emit-chars: 12
     aggressive-min-emit-chars: 8
+    
+  tools:
+    # config about ai-agent-tools
+    io-tools:
+      # see org.sempiria.cepheuna.tools.IOTools
+      whitelist-paths: /    # All
+      blacklist-paths: C:/Windows    
+      io-mode: WHITELIST   # WHITELIST or BLACKLIST,on WHITELIST,blacklist-paths will not enable,and vice versa
 
 logging:
   level:
@@ -195,4 +205,4 @@ logging:
 * Github: https://github.com/Hakizumi/Cepheuna
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
 * Contributors: Hakizumi
-* Version: 1.1.0
+* Version: 1.1.2
