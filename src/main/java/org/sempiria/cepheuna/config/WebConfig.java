@@ -15,7 +15,7 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
  * in this patch connects to the same endpoint.
  *
  * @since 1.0.0
- * @version 1.0.0
+ * @version 1.1.0
  * @author Sempiria
  */
 @Configuration

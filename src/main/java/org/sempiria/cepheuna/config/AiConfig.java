@@ -189,11 +189,15 @@ public class AiConfig {
     ) {
         int nullCount = 0;
 
-        if (props.getTts() != null) {
-            nullCount += props.getTts().getTokenFilePath() == null ? 1 : 0;
-            nullCount += props.getTts().getVoicesFilePath() == null ? 1 : 0;
-            nullCount += props.getTts().getModelFilePath() == null ? 1 : 0;
-            nullCount += props.getTts().getDataPath() == null ? 1 : 0;
+        ModelProperties.Tts tts = props.getTts();
+
+        if (tts != null) {
+            nullCount += tts.getTokenFilePath() == null || tts.getTokenFilePath().isBlank() ? 1 : 0;
+            nullCount += tts.getVoicesFilePath() == null || tts.getVoicesFilePath().isBlank() ? 1 : 0;
+            nullCount += tts.getModelFilePath() == null || tts.getModelFilePath().isBlank() ? 1 : 0;
+            nullCount += tts.getDataPath() == null || tts.getDataPath().isBlank() ? 1 : 0;
+            nullCount += tts.getDictPath() == null || tts.getDictPath().isBlank() ? 1 : 0;
+            nullCount += tts.getLexiconFilePath() == null || tts.getLexiconFilePath().isBlank() ? 1 : 0;
         }
         else {
             nullCount += 1;
@@ -201,7 +205,7 @@ public class AiConfig {
 
         if (nullCount == 0) {
             log.info("Uses native tts service ( SherpaOnnxTtsServiceImpl )");
-            return new SherpaOnnxTtsServiceImpl(sherpaConfig.offlineTts(props));
+            return new SherpaOnnxTtsServiceImpl(sherpaConfig.offlineTts(tts));
         }
         else {
             log.info("Uses online tts service ( OpenaiOnlineTtsServiceImpl )");

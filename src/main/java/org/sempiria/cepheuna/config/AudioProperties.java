@@ -2,6 +2,7 @@ package org.sempiria.cepheuna.config;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -15,12 +16,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * 16kHz mono PCM16, 20ms frames, bounded queues, and short finalize timeouts.
  *
  * @since 1.0.0
- * @version 1.0.1
+ * @version 1.0.2
  * @author Sempiria
  */
 @ConfigurationProperties("cepheuna.audio")
 @Getter
 @Setter
+@ToString
 public class AudioProperties {
     // ====== Audio format (recommended for streaming ASR) ======
 

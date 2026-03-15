@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
  * @see SherpaOnnxTtsServiceImpl
  *
  * @since 1.2.0
- * @version 1.0.0
+ * @version 1.1.0
  * @author Sempiria
  */
 @Configuration
@@ -26,16 +26,21 @@ public class SherpaConfig {
      * @see AiConfig#ttsService(ModelProperties, SherpaConfig, OpenAiAudioSpeechModel)
      * @see SherpaOnnxTtsServiceImpl
      */
-    public @NonNull OfflineTts offlineTts(@NonNull ModelProperties props) {
-        OfflineTtsKokoroModelConfig kokoro = OfflineTtsKokoroModelConfig.builder()
-                .setModel(props.getTts().getModelFilePath())
-                .setVoices(props.getTts().getVoicesFilePath())
-                .setTokens(props.getTts().getTokenFilePath())
-                .setDataDir(props.getTts().getDataPath())
-                .build();
+    public @NonNull OfflineTts offlineTts(ModelProperties.@NonNull Tts tts) {
+        OfflineTtsKokoroModelConfig.Builder kokoro = OfflineTtsKokoroModelConfig.builder()
+                .setModel(tts.getModelFilePath())
+                .setVoices(tts.getVoicesFilePath())
+                .setTokens(tts.getTokenFilePath())
+                .setDataDir(tts.getDataPath())
+                .setLexicon(tts.getLexiconFilePath())
+                .setDictDir(tts.getDictPath());
+
+        if (tts.getLanguage() != null) {
+            kokoro.setLang(tts.getLanguage());
+        }
 
         OfflineTtsModelConfig model = OfflineTtsModelConfig.builder()
-                .setKokoro(kokoro)
+                .setKokoro(kokoro.build())
                 .setNumThreads(2)
                 .setDebug(false)
                 .build();

@@ -145,18 +145,21 @@ cepheuna:
 
   models:
     stt:
-      token-file-path: models/stt/tokens.txt
-      joiner-file-path: models/stt/joiner-epoch-99-avg-1.int8.onnx
-      encoder-file-path: models/stt/encoder-epoch-99-avg-1.int8.onnx
-      decoder-file-path: models/stt/decoder-epoch-99-avg-1.int8.onnx
+    token-file-path: models/stt/tokens.txt
+    joiner-file-path: models/stt/joiner-epoch-99-avg-1.int8.onnx
+    encoder-file-path: models/stt/encoder-epoch-99-avg-1.int8.onnx
+    decoder-file-path: models/stt/decoder-epoch-99-avg-1.int8.onnx
 
     tts:
-      # If not configure the 'tts' branch,or any following entries is null
+      # If not configure the 'tts' branch,or any following entries ( except 'language' ) is null
       # Cepheuna will choose online text to speech mode ( Call online openai model )
       token-file-path: models/tts/tokens.txt
       voices-file-path: models/tts/voices.bin
       model-file-path: models/tts/model.onnx
       data-path: models/tts/espeak-ng-data
+      lexicon-file-path: models/tts/lexicon-us-en.txt
+      dict-path: models/tts/dict
+      language: en_us  # optional
 
   tokenizer:
     # see org.sempiria.cepheuna.config.StreamingTokenizerProperties
@@ -172,7 +175,7 @@ cepheuna:
     io-tools:
       # see org.sempiria.cepheuna.tools.IOTools
       whitelist-paths: /    # All
-      blacklist-paths: C:/Windows  # blacklist paths ( model cannot access )
+      blacklist-paths: C:/  # blacklist paths ( model cannot access )
 
       # If the whitelist and blacklist have duplicated entries, an IllegalArgumentException will be reported
       
@@ -189,4 +192,4 @@ logging:
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
 * Developer: `Hakizumi`
 * Contributors: None :(
-* Version: 1.2.0-beta
+* Version: 1.2.0

@@ -2,6 +2,7 @@ package org.sempiria.cepheuna.config;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -25,11 +26,15 @@ public class ModelProperties {
      */
     @Getter
     @Setter
+    @ToString
     public static class Tts {
         private @Nullable String tokenFilePath = null;
         private @Nullable String voicesFilePath = null;
         private @Nullable String modelFilePath = null;
         private @Nullable String dataPath = null;
+        private @Nullable String lexiconFilePath = null;
+        private @Nullable String dictPath = null;
+        private @Nullable String language = null;  // optional
     }
 
     /**
@@ -37,6 +42,7 @@ public class ModelProperties {
      */
     @Getter
     @Setter
+    @ToString
     public static class Stt {
         private @NonNull String tokenFilePath = "models/stt/tokens.txt";
         private @NonNull String joinerFilePath = "models/stt/joiner-epoch-99-avg-1.int8.onnx";
