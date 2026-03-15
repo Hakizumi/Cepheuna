@@ -29,17 +29,8 @@ import static org.sempiria.cepheuna.service.OutstreamService.NOOP_OUTSTREAM;
 /**
  * Browser websocket endpoint.
  *
- * <p>Two stability fixes are important here:
- * <ol>
- *     <li>All writes to a session are serialized with one lock, so Tomcat never
- *     sees concurrent text writes on the same WebSocket session.</li>
- *     <li>After the socket is closed, the session outstream is marked closed and
- *     server cleanup uses a no-op outstream, so no more messages are attempted
- *     on the dead session.</li>
- * </ol>
- *
  * @since 1.0.0
- * @version 1.1.0
+ * @version 1.2.0
  * @author Sempiria
  */
 @Component
@@ -243,6 +234,7 @@ public class ServerWebSocketHandler extends AbstractWebSocketHandler {
                 @NonNull String cid,
                 @NonNull String utteranceId,
                 long seq,
+                long chunkIndex,
                 byte @NonNull [] audioBytes,
                 @NonNull String audioFormat
         ) {
@@ -251,8 +243,19 @@ public class ServerWebSocketHandler extends AbstractWebSocketHandler {
                     "cid", cid,
                     "utteranceId", utteranceId,
                     "seq", seq,
+                    "chunkIndex", chunkIndex,
                     "audioFormat", audioFormat,
                     "audioBase64", Base64.getEncoder().encodeToString(audioBytes)
+            ));
+        }
+
+        @Override
+        public void onAssistantAudioComplete(@NonNull String cid, @NonNull String utteranceId, long seq) {
+            sendJson(Map.of(
+                    "type", "assistant_audio_complete",
+                    "cid", cid,
+                    "utteranceId", utteranceId,
+                    "seq", seq
             ));
         }
 

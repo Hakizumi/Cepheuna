@@ -1,6 +1,7 @@
 type WsIncomingMessage =
   | { type: 'assistant_text'; text?: string; cid?: string }
-  | { type: 'assistant_audio'; audioBase64?: string; audioFormat?: string; utteranceId?: string; seq?: number; cid?: string }
+  | { type: 'assistant_audio'; audioBase64?: string; audioFormat?: string; utteranceId?: string; seq?: number; chunkIndex?: number; cid?: string }
+  | { type: 'assistant_audio_complete'; utteranceId?: string; seq?: number; cid?: string }
   | { type: 'assistant_sentence'; text?: string; utteranceId?: string; seq?: number; cid?: string }
   | { type: 'assistant_start'; cid?: string }
   | { type: 'assistant_finish'; cid?: string }
@@ -19,6 +20,18 @@ type WsOutgoingMessage =
   | { type: 'stop'; cid: string }
   | { type: 'ping'; cid: string };
 
+type BufferedAudioChunk = {
+  chunkIndex: number;
+  base64: string;
+  format: string;
+};
+
+type SentencePlaybackState = {
+  chunks: Map<number, BufferedAudioChunk>;
+  nextChunkIndex: number;
+  complete: boolean;
+};
+
 declare global {
   interface Window {
     webkitAudioContext?: typeof AudioContext;
@@ -26,8 +39,9 @@ declare global {
 }
 
 const PLAYBACK_SAMPLE_RATE = 24000;
-const PLAYBACK_LEAD_SECONDS = 0.03;
-const PCM_FADE_SAMPLES = 64;
+const PLAYBACK_LEAD_SECONDS = 0.12;
+const PCM_FADE_SAMPLES = 128;
+const PCM_MIN_BUFFER_BYTES = 16384;
 
 let ws: WebSocket | null = null;
 let audioCtx: AudioContext | null = null;
@@ -41,6 +55,11 @@ let isConnecting: boolean = false;
 let isMicRunning: boolean = false;
 let assistantLine: string = '';
 let sttPartialLine: string = '';
+let activeUtteranceId: string = '';
+let nextSentenceSeqToPlay: number = 0;
+let sentencePlaybackStates: Map<number, SentencePlaybackState> = new Map();
+let drainPlaybackPromise: Promise<void> = Promise.resolve();
+let pendingPcmBytes: Uint8Array = new Uint8Array(0);
 
 const logEl:HTMLPreElement = mustGet<HTMLPreElement>('log');
 const cidEl:HTMLInputElement = mustGet<HTMLInputElement>('cid');
@@ -154,6 +173,7 @@ async function connect(): Promise<void> {
       switch (msg.type) {
         case 'assistant_start':
           assistantLine = '';
+          activeUtteranceId = '';
           resetPlaybackSchedule();
           log('[assistant_start]');
           break;
@@ -162,12 +182,24 @@ async function connect(): Promise<void> {
           rewriteLastLines('assistant: ', assistantLine);
           break;
         case 'assistant_sentence':
+          if (typeof msg.utteranceId === 'string') {
+            activeUtteranceId = msg.utteranceId;
+          }
           log(`[tts_queue] #${msg.seq ?? 0} ${msg.text ?? ''}`);
           break;
         case 'assistant_audio':
           if (msg.audioBase64) {
-            await queueAudio(<string> msg.audioBase64, ((msg.audioFormat as string) ?? 'pcm'));
+            queueSentenceAudio(
+              String(msg.utteranceId ?? activeUtteranceId ?? ''),
+              Number(msg.seq ?? 0),
+              Number(msg.chunkIndex ?? 0),
+              String(msg.audioBase64),
+              String(msg.audioFormat ?? 'pcm'),
+            );
           }
+          break;
+        case 'assistant_audio_complete':
+          markSentenceAudioComplete(String(msg.utteranceId ?? activeUtteranceId ?? ''), Number(msg.seq ?? 0));
           break;
         case 'stt_partial':
           sttPartialLine = ((msg.text as string) ?? '');
@@ -189,7 +221,11 @@ async function connect(): Promise<void> {
         case 'pong':
         case 'client_stop':
           log(`[${msg.type}]`);
-          if (msg.type === 'assistant_done' || msg.type === 'stopped') {
+          if (msg.type === 'assistant_done') {
+            await flushPendingPcm();
+            assistantLine = '';
+          }
+          if (msg.type === 'stopped') {
             assistantLine = '';
           }
           if (msg.type === 'stopped' || msg.type === 'client_stop') {
@@ -251,6 +287,11 @@ async function ensurePlaybackContext(): Promise<AudioContext> {
 function resetPlaybackSchedule(): void {
   playbackGeneration += 1;
   playbackCursorTime = 0;
+  activeUtteranceId = '';
+  nextSentenceSeqToPlay = 0;
+  sentencePlaybackStates = new Map();
+  drainPlaybackPromise = Promise.resolve();
+  pendingPcmBytes = new Uint8Array(0);
   if (playbackCtx && playbackCtx.state !== 'closed') {
     void playbackCtx.close();
   }
@@ -374,31 +415,140 @@ function floatTo16BitPCM(input: Float32Array): Int16Array {
   return out;
 }
 
-async function queueAudio(base64: string, format: string): Promise<void> {
-  if ((format ?? '').toLowerCase() === 'pcm') {
-    await schedulePcmChunk(base64);
+function queueSentenceAudio(utteranceId: string, seq: number, chunkIndex: number, base64: string, format: string): void {
+  if (utteranceId && activeUtteranceId && utteranceId !== activeUtteranceId) {
     return;
   }
+  if (utteranceId && !activeUtteranceId) {
+    activeUtteranceId = utteranceId;
+  }
+
+  const state = sentencePlaybackStates.get(seq) ?? { chunks: new Map<number, BufferedAudioChunk>(), nextChunkIndex: 0, complete: false };
+  state.chunks.set(chunkIndex, { chunkIndex, base64, format });
+  sentencePlaybackStates.set(seq, state);
+  drainSentencePlayback();
+}
+
+function markSentenceAudioComplete(utteranceId: string, seq: number): void {
+  if (utteranceId && activeUtteranceId && utteranceId !== activeUtteranceId) {
+    return;
+  }
+  if (utteranceId && !activeUtteranceId) {
+    activeUtteranceId = utteranceId;
+  }
+
+  const state = sentencePlaybackStates.get(seq) ?? { chunks: new Map<number, BufferedAudioChunk>(), nextChunkIndex: 0, complete: false };
+  state.complete = true;
+  sentencePlaybackStates.set(seq, state);
+  drainSentencePlayback();
+}
+
+function drainSentencePlayback(): void {
+  const generation = playbackGeneration;
+  drainPlaybackPromise = drainPlaybackPromise.then(async () => {
+    if (generation !== playbackGeneration) {
+      return;
+    }
+
+    while (generation === playbackGeneration) {
+      const state = sentencePlaybackStates.get(nextSentenceSeqToPlay);
+      if (!state) {
+        return;
+      }
+
+      let advanced = false;
+      while (generation === playbackGeneration) {
+        const chunk = state.chunks.get(state.nextChunkIndex);
+        if (!chunk) {
+          break;
+        }
+
+        state.chunks.delete(state.nextChunkIndex);
+        state.nextChunkIndex += 1;
+        advanced = true;
+        await queueAudio(chunk.base64, chunk.format);
+      }
+
+      if (state.complete && state.chunks.size === 0) {
+        await flushPendingPcm();
+        sentencePlaybackStates.delete(nextSentenceSeqToPlay);
+        nextSentenceSeqToPlay += 1;
+        advanced = true;
+        continue;
+      }
+
+      if (!advanced) {
+        return;
+      }
+    }
+  }).catch((err: unknown) => {
+    log(`[audio-error] ${(err as Error).message}`);
+    console.error(err);
+  });
+}
+
+async function queueAudio(base64: string, format: string): Promise<void> {
+  if ((format ?? '').toLowerCase() === 'pcm') {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    if (bytes.byteLength === 0) {
+      return;
+    }
+
+    pendingPcmBytes = concatBytes(pendingPcmBytes, bytes);
+    if (pendingPcmBytes.byteLength >= PCM_MIN_BUFFER_BYTES) {
+      const readyBytes = pendingPcmBytes;
+      pendingPcmBytes = new Uint8Array(0);
+      await schedulePcmBytes(readyBytes);
+    }
+    return;
+  }
+  await flushPendingPcm();
   await playDecodedChunk(base64);
 }
 
-async function schedulePcmChunk(base64: string): Promise<void> {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  if (bytes.byteLength < 2) {
+function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
+  if (a.byteLength === 0) {
+    return b;
+  }
+  if (b.byteLength === 0) {
+    return a;
+  }
+
+  const out = new Uint8Array(a.byteLength + b.byteLength);
+  out.set(a, 0);
+  out.set(b, a.byteLength);
+  return out;
+}
+
+async function flushPendingPcm(): Promise<void> {
+  if (pendingPcmBytes.byteLength < 2) {
+    pendingPcmBytes = new Uint8Array(0);
     return;
   }
 
+  const readyBytes = pendingPcmBytes;
+  pendingPcmBytes = new Uint8Array(0);
+  await schedulePcmBytes(readyBytes);
+}
+
+async function schedulePcmBytes(bytes: Uint8Array): Promise<void> {
   const generation = playbackGeneration;
   const ctx = await ensurePlaybackContext();
   if (generation !== playbackGeneration) {
     return;
   }
 
-  const sampleCount = Math.floor(bytes.byteLength / 2);
-  const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, sampleCount);
-  const audioBuffer = ctx.createBuffer(1, sampleCount, PLAYBACK_SAMPLE_RATE);
+  const evenLength = bytes.byteLength - (bytes.byteLength % 2);
+  if (evenLength < 2) {
+    return;
+  }
+
+  const bufferSlice = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + evenLength);
+  const pcm = new Int16Array(bufferSlice);
+  const audioBuffer = ctx.createBuffer(1, pcm.length, PLAYBACK_SAMPLE_RATE);
   const channel = audioBuffer.getChannelData(0);
-  for (let i = 0; i < sampleCount; i += 1) {
+
+  for (let i = 0; i < pcm.length; i += 1) {
     channel[i] = (pcm[i] ?? 0) / 32768;
   }
   applyFade(channel);
@@ -409,7 +559,6 @@ async function schedulePcmChunk(base64: string): Promise<void> {
   source.buffer = audioBuffer;
   source.connect(ctx.destination);
   source.start(startAt);
-
   playbackCursorTime = startAt + audioBuffer.duration;
 }
 

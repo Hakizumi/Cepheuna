@@ -13,11 +13,15 @@ import java.util.function.Consumer;
 /**
  * Tokenize streaming LLM output into sentence-like chunks for incremental TTS.
  *
- * <p>This revision emits the first sentence more aggressively and supports CJK
- * text better, so Chinese replies do not wait for whitespace that never comes.
+ * <p>Key goals of this revision:
+ * <ul>
+ *     <li>keep sentence-level TTS input segmentation</li>
+ *     <li>avoid splitting English text on whitespace such as "assist you"</li>
+ *     <li>still emit early enough for CJK text that usually has no spaces</li>
+ * </ul>
  *
  * @since 1.0.0
- * @version 1.1.0
+ * @version 1.2.0
  * @author Sempiria
  */
 @Service
@@ -40,7 +44,7 @@ public final class StreamingTokenizerService {
 
         char[] cutChars = cut.toCharArray();
         this.softLength = properties.getSoftLength() > 0 ? properties.getSoftLength() : 48;
-        this.aggressiveSoftLength = properties.getAggressiveSoftLength() > 0 ? properties.getAggressiveSoftLength() : 24;
+        this.aggressiveSoftLength = properties.getAggressiveSoftLength() > 0 ? properties.getAggressiveSoftLength() : 40;
         this.hardLength = Math.max(this.softLength + 16, properties.getHardLength());
         this.minEmitChars = Math.max(1, properties.getMinEmitChars());
         this.aggressiveMinEmitChars = Math.max(1, properties.getAggressiveMinEmitChars());
@@ -150,8 +154,14 @@ public final class StreamingTokenizerService {
         return false;
     }
 
+    /**
+     * Only treat CJK characters as soft boundary hints.
+     *
+     * <p>Do not treat whitespace as a boundary hint because English text is streamed token by token
+     * and the tokenizer would otherwise split on spaces in the middle of a sentence.
+     */
     private boolean isNaturalPauseChar(char ch) {
-        return Character.isWhitespace(ch) || isCjk(ch);
+        return isCjk(ch);
     }
 
     private boolean isCjk(char ch) {
