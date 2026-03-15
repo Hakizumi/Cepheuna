@@ -7,13 +7,13 @@ import reactor.core.publisher.Flux;
  * Text to speech service
  * Old version is {@code AudioService}
  *
- * @since 1.1.4
+ * @since 1.2.0-beta
  * @version 1.0.0
  * @author Sempiria
  */
 public interface TtsService {
     /**
-     * Text to speech streamly
+     * Text to speech streaming
      *
      * @param text input text
      * @return a payload as a Flux

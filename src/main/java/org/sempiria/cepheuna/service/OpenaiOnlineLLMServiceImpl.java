@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * so the main voice pipeline stays stable. The assistant can still use tools
  * via the globally configured ChatClient default tools.
  *
- * @since 1.2.0
+ * @since 1.2.0-beta
  * @version 1.0.0
  * @author Sempiria
  */

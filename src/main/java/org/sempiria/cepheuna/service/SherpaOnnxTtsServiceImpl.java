@@ -1,7 +1,6 @@
 package org.sempiria.cepheuna.service;
 
 import com.k2fsa.sherpa.onnx.OfflineTts;
-import org.jetbrains.annotations.TestOnly;
 import org.jspecify.annotations.NonNull;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -18,11 +17,10 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Text to speech service
  *
- * @since 1.2.0
+ * @since 1.2.0-beta
  * @version 1.0.0
  * @author Sempiria
  */
-@TestOnly
 public class SherpaOnnxTtsServiceImpl implements TtsService {
     private static final int CHANNELS = 1;
     private static final int BITS_PER_SAMPLE = 16;
@@ -67,7 +65,6 @@ public class SherpaOnnxTtsServiceImpl implements TtsService {
                                     return 1;
                                 }
 
-                                // 保守做法：立刻复制，避免 native 回调返回后底层数据失效
                                 float[] copied = Arrays.copyOf(samples, samples.length);
                                 byte[] wavChunk = encodeWavChunk(copied, sampleRate);
 

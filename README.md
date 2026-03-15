@@ -192,4 +192,4 @@ logging:
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
 * Developer: `Hakizumi`
 * Contributors: None :(
-* Version: 1.2.0
+* Version: 1.2.1

@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
  * @see SherpaOnnxSttService
  * @see SherpaOnnxTtsServiceImpl
  *
- * @since 1.2.0
+ * @since 1.2.0-beta
  * @version 1.1.0
  * @author Sempiria
  */

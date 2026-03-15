@@ -1,6 +1,7 @@
 package org.sempiria.cepheuna.tools;
 
 import lombok.Setter;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.tool.annotation.Tool;
@@ -301,7 +302,7 @@ public class IOTools implements AgentTool {
         }
     }
 
-    private @NonNull List<Path> normalizeRoots(@NonNull List<String> roots) {
+    private @NonNull @Unmodifiable List<Path> normalizeRoots(@NonNull List<String> roots) {
         return roots.stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
