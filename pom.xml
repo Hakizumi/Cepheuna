@@ -12,7 +12,7 @@
 
     <groupId>org.sempiria</groupId>
     <artifactId>cepheuna</artifactId>
-    <version>1.2.2</version>
+    <version>1.2.3</version>
     <name>cepheuna</name>
 
     <properties>
@@ -54,16 +54,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.litongjava</groupId>
-            <artifactId>sherpa-onnx-java-api</artifactId>
-            <version>1.0.1</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.k2fsa.sherpa.onnx</groupId>
-            <artifactId>sherpa-onnx-native-lib-win-x64</artifactId>
-            <version>1.12.28</version>
+            <artifactId>sherpa-onnx</artifactId>
+            <version>1.12.29</version>
         </dependency>
 
         <dependency>
@@ -112,19 +105,6 @@
                         </exclude>
                     </excludes>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

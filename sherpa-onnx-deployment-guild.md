@@ -1,7 +1,7 @@
 # Sherpa-ONNX Pure Java Deployment Guide
 ## Windows, macOS, and Linux
 
-This document is for end users who want to deploy **Sherpa-ONNX in pure Java** without Spring Boot.
+This document is for end users who want to deploy **Sherpa-ONNX in pure Java**.
 
 ---
 
@@ -124,28 +124,11 @@ Use this when you need:
 ### Notice: Sherpa onnx native runtime lib is not published on maven central repository,so you should install it to your local repository
 ```shell
 mvn install:install-file `
-  -Dfile=./lib/sherpa-onnx-native-lib-linux-x64-v1.12.28.jar `
+  -Dfile=./lib/sherpa-onnx-native-lib-<system>-<platform>-<version> `
   -DgroupId=com.k2fsa.sherpa.onnx `
   -DartifactId=sherpa-onnx-native-lib-<system>-<platform> `
-  -Dversion=latest-native-lib-version `
+  -Dversion=<version>
   -Dpackaging=jar
-```
-
----
-
-## Audio Input Requirements
-
-For the easiest first deployment, use audio files with these properties:
-
-- WAV
-- PCM 16-bit
-- mono
-- 16 kHz sample rate
-
-Convert audio with ffmpeg if needed:
-
-```bash
-ffmpeg -i input.mp3 -ac 1 -ar 16000 -sample_fmt s16 output.wav
 ```
 
 ---

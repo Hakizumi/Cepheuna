@@ -6,4 +6,4 @@ spring:
     name: Cepheuna
 
 cepheuna:
-  version: 1.2.2
+  version: 1.2.3

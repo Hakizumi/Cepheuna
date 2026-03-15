@@ -14,11 +14,11 @@
 
 ## How to use? ( For developers )
 ### Prepare -- Requires
-* Java version / JDK >= 21
+* JDK >= 21
 * Sherpa Onnx Runtime Lib ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
-* K2fsa Models ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
+* Sherpa Onnx Models ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
 
-#### To deploy sherpa-onnx models and runtime lib,see [sherpa-onnx-deployment-guild](sherpa-onnx-deployment-guild.md)
+#### To download and deploy sherpa-onnx models and runtime lib,see [sherpa-onnx-deployment-guild](sherpa-onnx-deployment-guild.md)
 
 ### First -- Configure your openai-api-url and api-key
 
@@ -31,26 +31,32 @@ spring:
       base-url: https://api.openai.com   # Api url,you can replace it with your own transit station
 ```
 
-### Second -- Compile the source and run the project
+#### Second -- Add the Sherpa api and Sherpa runtime lib to classpath
+In `pom.xml`
 ```xml
-<!-- Add the lombok processor -->
-<plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-compiler-plugin</artifactId>
-    <configuration>
-        <annotationProcessorPaths>
-            <path>
-                <groupId>org.projectlombok</groupId>
-                <artifactId>lombok</artifactId>
-            </path>
-        </annotationProcessorPaths>
-    </configuration>
-</plugin>
+<dependency>
+    <groupId>com.k2fsa.sherpa.onnx</groupId>
+    <artifactId>sherpa-onnx</artifactId>
+    <version>latest-sherpa-version</version>
+</dependency>
+<dependency>
+    <groupId>com.k2fsa.sherpa.onnx</groupId>
+    <artifactId>sherpa-onnx-native-lib-xxx</artifactId>
+    <version>latest-sherpa-version</version>
+</dependency>
 ```
 
+> The Sherpa onnx api and Sherpa onnx native lib is not published on maven central repository
+> So you should download it and install it to your local repository,like
+```shell
+mvn install:install-file -Dfile=.\sherpa-onnx-vx.x.x.jar -DgroupId=com.k2fsa.sherpa.onnx -DartifactId=sherpa-onnx -Dversion=x.x.x -Dpackaging=jar
+mvn install:install-file -Dfile=.\sherpa-onnx-vx.x.x-native-lib-xxx.jar -DgroupId=com.k2fsa.sherpa.onnx -DartifactId=sherpa-onnx-native-lib-xxx -Dversion=x.x.x -Dpackaging=jar
+```
+
+### Third -- Compile the source and run the project
 ```shell
 mvn clean package    # First: package
-java -jar target/voiceagent.jar   # Run the jar
+java -jar target/cepheuna.jar   # Run the jar
 ```
 
 #### or
@@ -59,7 +65,7 @@ java -jar target/voiceagent.jar   # Run the jar
 mvn spring-boot:run
 ```
 
-### Third -- Talk with **Cepheuna**
+### Forth -- Talk with **Cepheuna**
 #### Open your browser ( Any one is ok ) and access http://localhost:11622/ ( or http://localhost:11622/index.html , both are ok)
 #### If you have seen the page,that means **Cepheuna** is running healthy.
 #### If not,check the program is running, the url you enter is correct,and you do configure port 11622.If you change your port, you should also change the URL you enter.
@@ -78,6 +84,7 @@ java --version
 #### If java version is printed successfully,that means JRE is deployed successfully.
 
 ### First -- Download latest version of Cepheuna one-click deployment package on [Cepheuna-releases](https://github.com/Hakizumi/Cepheuna/releases),and move it to a proper path
+> The one-click deployment kit is already integrated stt and tts models,that means you don't need to download the Sherpa models yourself. 
 
 ### Second -- Unzip the Cepheuna one-click deployment package
 #### In `./config/application.yml`
@@ -192,4 +199,4 @@ logging:
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
 * Developer: `Hakizumi`
 * Contributors: None :(
-* Version: 1.2.2
+* Version: 1.2.3
