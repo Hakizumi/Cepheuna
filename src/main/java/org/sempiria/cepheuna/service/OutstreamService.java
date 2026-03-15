@@ -8,7 +8,7 @@ import org.springframework.http.codec.ServerSentEvent;
  * Output callback abstraction used by the server pipeline to push events to the browser.
  *
  * @since 1.0.0
- * @version 1.1.0
+ * @version 1.2.0
  * @author Sempiria
  */
 public interface OutstreamService {
@@ -49,14 +49,26 @@ public interface OutstreamService {
     }
 
     /**
-     * Called when audio bytes are ready for the browser.
+     * Called when one streaming audio chunk is ready for the browser.
      */
     default void onAssistantAudioChunk(
             @NonNull String cid,
             @NonNull String utteranceId,
             long seq,
+            long chunkIndex,
             byte @NonNull [] audioBytes,
             @NonNull String audioFormat
+    ) {
+        // no-op
+    }
+
+    /**
+     * Called when all chunks of one sentence have been emitted.
+     */
+    default void onAssistantAudioComplete(
+            @NonNull String cid,
+            @NonNull String utteranceId,
+            long seq
     ) {
         // no-op
     }

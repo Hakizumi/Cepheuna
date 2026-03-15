@@ -14,28 +14,32 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * End-to-end server pipeline:
  * STT -> LLM(stream) -> tokenizer -> TTS(stream) -> websocket.
  *
- * <p>This version explicitly consumes reactive errors so Tomcat and Reactor do
- * not emit secondary {@code onErrorDropped} noise after a session has already
- * been closed or cancelled.
+ * <p>This revision keeps sentence-level TTS input segmentation, but runs sentence TTS jobs in
+ * parallel and streams chunks to the browser as soon as they are ready. Playback ordering is
+ * preserved client-side using (seq, chunkIndex) and the explicit sentence-complete signal.
  *
  * @since 1.0.0
- * @version 1.0.2
+ * @version 1.2.0
  * @author Sempiria
  */
 @Service
 @Slf4j
 public class ServerService {
+    private static final int TTS_PARALLELISM = 3;
+
     private final ConversationStore conversationStore;
     private final LLMService llmService;
     private final TtsService ttsService;
@@ -263,18 +267,26 @@ public class ServerService {
             existing.dispose();
         }
 
-        Sinks.@NonNull Many<UserAudioRequest> sink = Sinks.many().unicast().onBackpressureBuffer();
+        Sinks.Many<UserAudioRequest> sink = Sinks.many().unicast().onBackpressureBuffer();
         Disposable disposable = sink.asFlux()
-                .concatMap((req) -> ttsService.ttsStream(req.text())
-                        .doOnNext((chunk) -> outstreamService.onAssistantAudioChunk(
-                                req.cid(),
-                                req.utteranceId() == null ? "" : req.utteranceId(),
-                                req.segmentIndex(),
-                                chunk,
-                                ttsService.outputFormat()
-                        ))
-                        .then()
-                )
+                .flatMap((req) -> {
+                            AtomicLong chunkCounter = new AtomicLong(0L);
+                            return ttsService.ttsStream(req.text())
+                                    .doOnNext((chunk) -> outstreamService.onAssistantAudioChunk(
+                                            req.cid(),
+                                            req.utteranceId() == null ? "" : req.utteranceId(),
+                                            req.segmentIndex(),
+                                            chunkCounter.getAndIncrement(),
+                                            chunk,
+                                            ttsService.outputFormat()
+                                    ))
+                                    .doOnComplete(() -> outstreamService.onAssistantAudioComplete(
+                                            req.cid(),
+                                            req.utteranceId() == null ? "" : req.utteranceId(),
+                                            req.segmentIndex()
+                                    ))
+                                    .then(Mono.empty());
+                        }, TTS_PARALLELISM)
                 .doOnError((ex) -> outstreamService.onError(cid, ex.getMessage() == null ? "TTS failed." : ex.getMessage()))
                 .doOnComplete(() -> outstreamService.onAssistantDone(cid))
                 .onErrorResume((ex) -> Flux.empty())

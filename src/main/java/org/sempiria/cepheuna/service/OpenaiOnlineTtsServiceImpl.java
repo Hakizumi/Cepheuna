@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
-import org.sempiria.cepheuna.utils.AudioUtil;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
@@ -12,26 +11,24 @@ import org.springframework.ai.openai.api.OpenAiAudioApi;
 import reactor.core.publisher.Flux;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Assistant TTS service.
- * <p>
- * Robust strategy:
- * - synthesize one sentence at a time
- * - collect streamed chunks server-side
- * - emit one complete WAV payload to browser
- * <p>
- * This avoids browser-side decode failures caused by trying to decode
- * arbitrary provider chunks as if each chunk were a standalone audio file.
+ *
+ * <p>Input is sentence-segmented, but output stays streaming. To minimize latency and avoid the
+ * previous hiss/crackle issue, this implementation explicitly requests PCM from the provider and
+ * normalizes each emitted chunk so the browser always receives PCM16LE mono bytes with even frame
+ * alignment.
+ *
+ * @since 1.2.0-beta
+ * @version 1.2.0
+ * @author Sempiria
  */
 @Slf4j
 public class OpenaiOnlineTtsServiceImpl implements TtsService {
-
-    private static final int OUTPUT_SAMPLE_RATE = 24_000;
-    private static final int OUTPUT_CHANNELS = 1;
-    private static final int OUTPUT_BIT_DEPTH = 16;
+    private static final OpenAiAudioApi.SpeechRequest.AudioResponseFormat AUDIO_FORMAT =
+            OpenAiAudioApi.SpeechRequest.AudioResponseFormat.PCM;
 
     private final OpenAiAudioSpeechModel speechModel;
 
@@ -40,7 +37,8 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
     }
 
     /**
-     * Generate a single complete WAV payload for one sentence.
+     * @param text input text
+     * @return streaming PCM16LE audio chunks
      */
     @Override
     public @NonNull Flux<byte[]> ttsStream(@NonNull String text) {
@@ -50,83 +48,107 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
         }
 
         OpenAiAudioSpeechOptions options = OpenAiAudioSpeechOptions.builder()
-                .model(OpenAiAudioApi.TtsModel.GPT_4_O_MINI_TTS.value)
-                .voice(OpenAiAudioApi.SpeechRequest.Voice.ALLOY)
-                .responseFormat(OpenAiAudioApi.SpeechRequest.AudioResponseFormat.WAV)
+                .responseFormat(AUDIO_FORMAT)
                 .build();
 
         TextToSpeechPrompt prompt = new TextToSpeechPrompt(normalized, options);
+        PcmChunkNormalizer normalizer = new PcmChunkNormalizer();
 
         return speechModel.stream(prompt)
                 .map((resp) -> resp.getResult().getOutput())
-                .collectList()
-                .flatMapMany(this::toStableWavFlux)
+                .filter((chunk) -> chunk.length > 0)
+                .flatMapIterable(normalizer::normalize)
                 .doOnError((ex) -> log.warn("TTS stream failed: {}", ex.getMessage(), ex));
     }
 
     @Override
     public @NonNull String outputFormat() {
-        return "wav";
+        return "pcm";
     }
 
-    private @NonNull Flux<byte[]> toStableWavFlux(@NonNull List<byte[]> chunks) {
-        if (chunks.isEmpty()) {
-            return Flux.empty();
-        }
+    /**
+     * Normalize provider chunks into safe PCM16LE chunks.
+     *
+     * <p>Why this exists:
+     * <ul>
+     *     <li>some providers or gateways may prepend a WAV header to the first chunk even when PCM was requested</li>
+     *     <li>chunk boundaries may split a 16-bit sample in half, causing loud crackle if forwarded directly</li>
+     * </ul>
+     */
+    private static final class PcmChunkNormalizer {
+        private final AtomicBoolean firstChunk = new AtomicBoolean(true);
+        private byte @NonNull [] carry = new byte[0];
 
-        byte[] merged = concat(chunks);
-        if (merged.length == 0) {
-            return Flux.empty();
-        }
+        @NonNull Iterable<byte[]> normalize(byte @Nullable [] incoming) {
+            if (incoming == null || incoming.length == 0) {
+                return java.util.List.of();
+            }
 
-        // 如果已经是完整 WAV，直接发
-        if (AudioUtil.looksLikeWav(merged)) {
-            return Flux.just(merged);
-        }
+            byte[] chunk = incoming;
+            if (firstChunk.compareAndSet(true, false) && looksLikeWav(chunk)) {
+                chunk = stripWavHeader(chunk);
+            }
 
-        try {
-            byte[] wavBytes = AudioUtil.pcmToWav(
-                    ensureEvenBytes(merged),
-                    OUTPUT_SAMPLE_RATE,
-                    OUTPUT_CHANNELS,
-                    OUTPUT_BIT_DEPTH
-            );
-            return Flux.just(wavBytes);
-        } catch (IOException ex) {
-            return Flux.error(new IllegalStateException("Failed to build WAV audio.", ex));
-        }
-    }
+            if (chunk.length == 0 && carry.length == 0) {
+                return java.util.List.of();
+            }
 
-    @Contract("null -> new")
-    private byte @NonNull [] ensureEvenBytes(byte @Nullable [] bytes) {
-        if (bytes == null || bytes.length == 0) {
-            return new byte[0];
-        }
-
-        int evenLength = bytes.length - (bytes.length % 2);
-        if (evenLength <= 0) {
-            return new byte[0];
-        }
-
-        if (evenLength == bytes.length) {
-            return bytes;
-        }
-
-        byte[] copy = new byte[evenLength];
-        System.arraycopy(bytes, 0, copy, 0, evenLength);
-        return copy;
-    }
-
-    private byte @NonNull [] concat(@NonNull List<byte[]> chunks) {
-        int total = 0;
-        for (byte[] chunk : chunks) {
-            total += chunk.length;
-        }
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream(total);
-        for (byte[] chunk : chunks) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream(carry.length + chunk.length);
+            if (carry.length > 0) {
+                out.write(carry, 0, carry.length);
+                carry = new byte[0];
+            }
             out.write(chunk, 0, chunk.length);
+            byte[] merged = out.toByteArray();
+            if (merged.length < 2) {
+                carry = merged;
+                return java.util.List.of();
+            }
+
+            int evenLength = merged.length - (merged.length % 2);
+
+            byte[] emit = new byte[evenLength];
+            System.arraycopy(merged, 0, emit, 0, evenLength);
+
+            if (evenLength < merged.length) {
+                carry = new byte[]{merged[merged.length - 1]};
+            }
+            else {
+                carry = new byte[0];
+            }
+
+            return java.util.List.of(emit);
         }
-        return out.toByteArray();
+
+        @Contract(pure = true)
+        private boolean looksLikeWav(byte @NonNull [] bytes) {
+            return bytes.length >= 12
+                    && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                    && bytes[8] == 'W' && bytes[9] == 'A' && bytes[10] == 'V' && bytes[11] == 'E';
+        }
+
+        private byte[] stripWavHeader(byte @NonNull [] wavBytes) {
+            int offset = 12;
+            while (offset + 8 <= wavBytes.length) {
+                int chunkSize = littleEndianInt(wavBytes, offset + 4);
+                if (wavBytes[offset] == 'd' && wavBytes[offset + 1] == 'a' && wavBytes[offset + 2] == 't' && wavBytes[offset + 3] == 'a') {
+                    int dataStart = offset + 8;
+                    int safeSize = Math.max(0, Math.min(chunkSize, wavBytes.length - dataStart));
+                    byte[] data = new byte[safeSize];
+                    System.arraycopy(wavBytes, dataStart, data, 0, safeSize);
+                    return data;
+                }
+                offset += 8 + Math.max(0, chunkSize);
+            }
+            return wavBytes;
+        }
+
+        @Contract(pure = true)
+        private int littleEndianInt(byte @NonNull [] bytes, int offset) {
+            return (bytes[offset] & 0xFF)
+                    | ((bytes[offset + 1] & 0xFF) << 8)
+                    | ((bytes[offset + 2] & 0xFF) << 16)
+                    | ((bytes[offset + 3] & 0xFF) << 24);
+        }
     }
 }

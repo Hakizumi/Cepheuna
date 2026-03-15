@@ -14,7 +14,7 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
  * because text to speech will cost several seconds.
  *
  * @since 1.0.0
- * @version 1.2.0
+ * @version 1.2.2
  * @author Sempiria
  */
 @SpringBootApplication
