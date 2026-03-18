@@ -1,27 +1,33 @@
-package org.sempiria.cepheuna.entity;
+package org.sempiria.cepheuna.memory.dto;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.enums.ConversationState;
+import org.sempiria.cepheuna.memory.SummaryState;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.MessageType;
+import org.springframework.ai.chat.messages.SystemMessage;
 import reactor.core.Disposable;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * The conversation entity.
- * The old version is {@code org.sempiria.voiceagent.dto.ConversationMemory}.
+ * The conversation conversation.
+ * The old version is {@code org.sempiria.cepheuna.dto.ConversationMemory} & {@code org.sempiria.cepheuna.dto.ConversationEntity} & {@code org.sempiria.cepheuna.memory.ConversationEntity}.
  * Compare to the old version, the newer one is not only store memories, but also store information of conversation.
+ * Adds the {@code session meta} , {@code conversation unmodifiable facts} and {@code summaries}.
  *
  * @since 1.0.0
- * @version 1.0.0
+ * @version 1.2.0
  * @author Sempiria
  */
 @RequiredArgsConstructor
@@ -30,13 +36,25 @@ public class ConversationEntity {
     @Getter
     private final @NonNull String cid;
 
-    /**
-     * Memory list
-     */
+    /// Memory list
     @Getter
     private final List<Message> messages = new ArrayList<>();
 
-    // ============ statement properties ============
+    @Getter
+    private final SessionMeta meta = new SessionMeta();
+
+    @Getter
+    private final Facts facts = new Facts();
+
+    @Getter
+    private final SummaryState summary = new SummaryState();
+
+    @Getter
+    private final Map<String, List<Message>> archiveChunks = new LinkedHashMap<>();
+
+    @Getter
+    private final List<MemoryVectorDocument> vectorDocuments = new ArrayList<>();
+
     public @NonNull ConversationState state = ConversationState.IDLE;
 
     /// Last voice word token
@@ -83,6 +101,19 @@ public class ConversationEntity {
         messages.add(message);
     }
 
+    public void coverSystemPrompt(SystemMessage systemMessage) {
+        if (messages.getFirst().getMessageType() == MessageType.SYSTEM) {
+            messages.set(0, systemMessage);
+        }
+        else {
+            messages.addFirst(systemMessage);
+        }
+    }
+
+    public void coverSystemPrompt(String message) {
+        coverSystemPrompt(new SystemMessage(message));
+    }
+
     /**
      * Cancel assistant response & audio for barge-in.
      */
@@ -92,8 +123,8 @@ public class ConversationEntity {
         if (d != null && !d.isDisposed()) {
             d.dispose();
         }
-        currentAssistantSubscription = null;
 
+        currentAssistantSubscription = null;
         assistantActive.set(false);
         currentUtteranceId = null;
     }

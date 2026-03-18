@@ -27,17 +27,17 @@ public interface OutstreamService {
     };
 
     /**
-     * User STT partial text.
+     * User STT partial conversation.
      */
     void onUserPartialText(@NonNull UserAudioRequest request);
 
     /**
-     * User STT final text.
+     * User STT final conversation.
      */
     void onUserFinalText(@NonNull UserAudioRequest request);
 
     /**
-     * Assistant text/token/status event, usually bridged from {@link OpenaiOnlineLLMServiceImpl}.
+     * Assistant conversation/token/status event, usually bridged from {@link OpenaiOnlineLLMServiceImpl}.
      */
     void onAssistantEvent(@NonNull ServerSentEvent<String> event);
 

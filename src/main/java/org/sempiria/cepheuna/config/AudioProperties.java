@@ -70,13 +70,13 @@ public class AudioProperties {
 
     /**
      * Water-level pacing: if audio is far behind (buffer too high), slow down token ingestion.
-     * This helps keep text/voice more in-sync.
+     * This helps keep conversation/voice more in-sync.
      */
     private int bufferHighMs = 2500;
 
     /**
      * Water-level pacing: if audio buffer is too low, hurry up token ingestion.
-     * This helps keep text/voice more in-sync.
+     * This helps keep conversation/voice more in-sync.
      */
     private int bufferLowMs = 800;
 

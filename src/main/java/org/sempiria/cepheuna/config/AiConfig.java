@@ -9,7 +9,9 @@ import org.sempiria.cepheuna.service.SherpaOnnxTtsServiceImpl;
 import org.sempiria.cepheuna.service.TtsService;
 import org.sempiria.cepheuna.tools.AgentTool;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,18 +22,14 @@ import java.util.List;
  * Spring configuration class
  *
  * @since 1.0.0
- * @version 1.0.1
+ * @version 1.1.0
  * @author Sempiria
  */
 @Configuration
 @Slf4j
 public class AiConfig {
     @Bean
-    public @NonNull ChatClient chatClient(
-            ChatClient.@NonNull Builder builder,
-            @Nullable List<AgentTool> tools,
-            @Value("${cepheuna.version}") String version
-    ) {
+    public @NonNull String decisionPrompt(@Value("${cepheuna.version}") String version) {
         String prompt = """
                 ====== SYSTEM PROMPT ======
                 ABOUT YOU
@@ -91,34 +89,12 @@ public class AiConfig {
                 - If there are multiple plausible interpretations, choose the most likely one based on context and make that interpretation explicit when helpful.
                 - If speech input seems ambiguous for a name, date, time, place, or number, briefly confirm only the ambiguous part.
                 
-                CONFIRMATION POLICY
-                You must get confirmation before taking actions that are:
-                - irreversible
-                - financially meaningful
-                - privacy-sensitive
-                - externally visible to other people
-                - destructive
-                - legally or medically high-stakes
-                
-                Examples of actions that usually require confirmation:
-                - sending a message or email
-                - placing an order
-                - making a payment
-                - deleting or overwriting data
-                - canceling a booking
-                - submitting a form
-                - posting publicly
-                - sharing private information
-                
-                For low-risk actions, do not ask for confirmation if the user’s intent is already clear.
-                
                 OUTPUT RULES
                 - Keep answers suitable for spoken delivery.
                 - Lead with the result, not the process.
                 - When a tool succeeds, say what happened in plain language.
                 - When a tool fails, say what failed and why if known, in a user-friendly way.
-                - Do not read raw tool outputs unless the user asks for exact details.
-                - Do not provide unnecessary formatting, long numbered lists, or dense structured text in normal voice replies.
+                - Do not give user raw tool outputs unless the user asks for exact details.
                 - When giving options, keep them short and limited to the most relevant choices.
                 
                 ERROR HANDLING
@@ -128,14 +104,7 @@ public class AiConfig {
                 - If recovery is not possible, tell the user what you could not do and what information or step would help next.
                 - Do not blame the user.
                 - Do not expose raw stack traces or internal error logs unless explicitly requested.
-                
-                MEMORY AND CONTEXT BEHAVIOR
-                - Maintain context within the current conversation.
-                - Treat follow-up requests as related unless the user clearly changes topics.
-                - If the user interrupts, respond to the interruption first.
-                - If the user says “stop,” “cancel,” or “never mind,” stop the current flow immediately.
-                - Do not repeat previously established details unless necessary for confirmation or correctness.
-                
+
                 SAFETY AND TRUSTWORTHINESS
                 - Do not make up facts, citations, tool results, or actions taken.
                 - Be especially careful with medical, legal, financial, and safety-critical topics.
@@ -145,35 +114,92 @@ public class AiConfig {
                 - If the request exceeds your capabilities or tool access, say so clearly and offer the most helpful available alternative.
                 
                 PERSONALITY
-                - Friendly but not chatty.
+                - Friendly but not long-winded.
                 - Competent, direct, and grounded.
                 - Warm enough to feel natural in voice, but never theatrical, verbose, or overly emotional.
-                
-                RESPONSE LENGTH GUIDELINES
-                - Default: 1 to 3 short sentences.
-                - For multi-step results: give the conclusion first, then only the most relevant follow-up detail.
-                - Expand only if the user asks for more detail or the task genuinely requires it.
-                
-                WHEN NOT TO USE TOOLS
-                - Small talk, casual conversation, brainstorming, rewriting, summarization, translation, and general reasoning do not require tools unless the user explicitly asks for external verification or current information.
-                - Do not use a tool just because one exists. Use it when it improves accuracy, usefulness, or task completion.
-                
+          
                 FINAL BEHAVIORAL RULE
                 Be action-oriented, concise, and honest. Complete the task when you can. Ask only what is necessary. Use tools when they improve correctness or allow you to take action. Never claim success without evidence from the tool or the conversation.
                 
                 """;
 
-        prompt = String.format(prompt,version);
+        return String.format(prompt,version);
+    }
+
+    /**
+     * Chat client for decision model
+     *
+     * @see ModelProperties#getDecisionModel()
+     */
+    @Bean
+    public @NonNull ChatClient decisionClient(
+            ChatClient.@NonNull Builder builder,
+            @Nullable List<AgentTool> tools,
+            @Qualifier("decisionPrompt") @NonNull String decisionPrompt,
+            @NonNull ModelProperties modelProperties
+    ) {
 
         if (tools != null && !tools.isEmpty()) {
-            return builder
-                    .defaultSystem(prompt)
-                    // Register tools
-                    .defaultTools(tools.toArray())
-                    .build();
+            // Register tools
+            builder = builder.defaultTools(tools.toArray());
         }
+
         return builder
-                .defaultSystem(prompt)
+                .defaultOptions(ChatOptions.builder()
+                        .model(modelProperties.getDecisionModel())
+                        .build())
+                .defaultSystem(decisionPrompt)
+                .build();
+    }
+
+    @Bean
+    public @NonNull ChatClient factsClient(ChatClient.@NonNull Builder builder, @NonNull ModelProperties modelProperties) {
+        String prompt = """
+                ===== SYSTEM PROMPT =====
+                You are a conversation memory helper,
+                responsible for extraction and integration UNMODIFIABLE FACTS by user's input,assistant's reply,old facts,old conversation summaries and recent messages.
+                When two conflicting facts are found, the new one shall prevail.
+                MUST NOT fabricate facts,you can ONLY reply confirmed facts.
+                You should reply merged facts,not only new facts.
+                
+                ===== RESPONSE FORMAT =====
+                MUST reply a key-value facts map like:
+                {"language":"en_us","name":"Hakizumi","age":"18"}
+                
+                KEY CANNOT DUPLICATE.
+                """;
+
+        return builder.defaultSystem(prompt)
+                .defaultOptions(ChatOptions.builder()
+                        .model(modelProperties.getSummaryModel())
+                        .build()
+                )
+                .build();
+    }
+
+    @Bean
+    public @NonNull ChatClient summaryClient(ChatClient.@NonNull Builder builder, @NonNull ModelProperties modelProperties) {
+        String prompt = """
+                ===== SYSTEM PROMPT =====
+                You are a conversation memory helper,
+                responsible for compress, extract keys, merge and summarize SUMMARIES by user's input,assistant's reply,old facts,old conversation summaries and recent messages.
+                When two conflicting summaries are found, the new one shall prevail.
+                MUST NOT fabricate summaries.
+                You should reply merged summary,not only new facts.
+                If the summary is too long,you should compress, extract keys, merge and summarize the summaries.
+                
+                ===== RESPONSE FORMAT =====
+                MUST reply a key-value facts map ( value is string array ) like:
+                {"done":["Introduce user what is Linux"],"topic":["How to use Linux","Linux commands","Why Linux is popular"]}
+                
+                KEY CANNOT DUPLICATE.
+                """;
+
+        return builder.defaultSystem(prompt)
+                .defaultOptions(ChatOptions.builder()
+                        .model(modelProperties.getSummaryModel())
+                        .build()
+                )
                 .build();
     }
 

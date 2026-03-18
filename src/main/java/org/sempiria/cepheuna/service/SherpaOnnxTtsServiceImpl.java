@@ -166,14 +166,14 @@ public class SherpaOnnxTtsServiceImpl implements TtsService {
         out.write(s.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
     }
 
-    private static void writeIntLE(@NonNull ByteArrayOutputStream out, int value) throws IOException {
+    private static void writeIntLE(@NonNull ByteArrayOutputStream out, int value) {
         out.write(value & 0xFF);
         out.write((value >>> 8) & 0xFF);
         out.write((value >>> 16) & 0xFF);
         out.write((value >>> 24) & 0xFF);
     }
 
-    private static void writeShortLE(@NonNull ByteArrayOutputStream out, short value) throws IOException {
+    private static void writeShortLE(@NonNull ByteArrayOutputStream out, short value) {
         out.write(value & 0xFF);
         out.write((value >>> 8) & 0xFF);
     }

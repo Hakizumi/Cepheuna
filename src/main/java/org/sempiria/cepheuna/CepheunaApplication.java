@@ -15,10 +15,10 @@ import java.nio.file.Path;
  * achieved the sound acquisition/detection pause --LLM for agent-audio model output audio.
  * <p>
  * The disadvantage is that the output of audio will be delayed by 1-2 seconds compared to real realtime,
- * because text to speech will cost several seconds.
+ * because conversation to speech will cost several seconds.
  *
  * @since 1.0.0
- * @version 1.2.2
+ * @version 1.3.0-beta
  * @author Sempiria
  */
 @SpringBootApplication

@@ -57,7 +57,7 @@ public class SherpaOnnxSttService {
     }
 
     /**
-     * Read the best current partial text.
+     * Read the best current partial conversation.
      */
     public @NonNull String getText(@NonNull String cid) {
         OnlineRecognizer recognizer = getRecognizer(cid);
@@ -81,7 +81,7 @@ public class SherpaOnnxSttService {
             return result.toString().trim();
         }
         catch (Exception ex) {
-            throw new IllegalStateException("Cannot read sherpa result text.", ex);
+            throw new IllegalStateException("Cannot read sherpa result conversation.", ex);
         }
     }
 

@@ -15,7 +15,7 @@ public interface TtsService {
     /**
      * Text to speech streaming
      *
-     * @param text input text
+     * @param text input conversation
      * @return a payload as a Flux
      */
     @NonNull Flux<byte[]> ttsStream(@NonNull String text);

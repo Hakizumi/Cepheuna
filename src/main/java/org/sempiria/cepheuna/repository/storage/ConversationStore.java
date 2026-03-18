@@ -2,101 +2,76 @@ package org.sempiria.cepheuna.repository.storage;
 
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
-import org.sempiria.cepheuna.entity.ConversationEntity;
+import org.sempiria.cepheuna.memory.SummaryState;
+import org.sempiria.cepheuna.memory.dto.*;
 import org.springframework.ai.chat.messages.Message;
 
+import java.util.List;
+
 /**
- * Store conversation memories.
+ * Conversation state storage abstraction.
  *
- *  @since 1.0.0
- *  @version 1.0.0
- *  @author Sempiria
+ * <p>Besides the original in-memory conversation conversation, this interface now also acts as the
+ * integrated persistence boundary for layered memory files in single-machine production mode.
  */
 public interface ConversationStore {
-    /**
-     * Get conversation memory by cid
-     *
-     * @param cid the conversation's id
-     * @return the memory, if not exist,returns null
-     *
-     * @throws NullPointerException if cid is null
-     */
+    /** Get a conversation conversation by session id. */
     @Nullable ConversationEntity getConversationMemory(String cid);
 
-    /**
-     * Get conversation memory by cid
-     *
-     * @param cid the conversation's id
-     * @return the memory, if not exist,returns a new one (not storage)
-     *
-     * @throws NullPointerException if cid is null
-     */
+    /** Get a conversation conversation or return a detached default instance. */
     @NonNull ConversationEntity getConversationMemoryOrDefault(String cid);
 
-    /**
-     * Get conversation memory by cid
-     *
-     * @param cid the conversation's id
-     * @return the memory, if not exist,returns a new one (storage)
-     *
-     * @throws NullPointerException if cid is null
-     */
+    /** Get a conversation conversation or create and store it when absent. */
     @NonNull ConversationEntity getConversationMemoryOrStorage(String cid);
 
-    /**
-     * Remove the conversation memory by cid
-     *
-     * @param cid the conversation's id
-     * @return the memory, if not exist, returns null
-     *
-     * @throws NullPointerException if cid is null
-     */
+    /** Remove a conversation conversation from memory cache and underlying persistence. */
     ConversationEntity removeConversationMemory(String cid);
 
-    /**
-     * Storage a conversation memory
-     *
-     * @param cid the conversation's id
-     * @param conversationEntity target
-     *
-     * @throws NullPointerException if cid or conversationEntity is null
-     */
+    /** Add or replace a conversation conversation. */
     void addConversationMemory(String cid, ConversationEntity conversationEntity);
 
-    /**
-     * Clear conversation memory by cid
-     *
-     * @param cid the conversation's id
-     *
-     * @throws NullPointerException if cid is null
-     */
+    /** Clear a single conversation. */
     void clearConversationMemory(String cid);
 
-    /**
-     * Clear all storaged memories
-     */
+    /** Clear every stored conversation. */
     void clearAll();
 
-    /**
-     * Push a message to the target memory
-     *
-     * @param cid the conversation's id
-     * @param message target message
-     * @param putIfAbsent put if absent
-     * @return pushed conversation memory
-     *
-     * @throws NullPointerException if cid or message is null
-     */
+    /** Push a message to a conversation. */
     @Nullable ConversationEntity pushMessage(String cid, Message message, boolean putIfAbsent);
 
-    /**
-     * An easy usage for pushMessage
-     *
-     * @param cid the conversation's id
-     * @param message target message
-     * @return pushed conversation memory
-     *
-     * @throws NullPointerException if cid or message is null
-     */
+    /** Push a message to a conversation, creating the session when needed. */
     @Nullable ConversationEntity pushMessage(String cid, Message message);
+
+    /** Load or create session meta. */
+    @NonNull SessionMeta loadMetaOrCreate(String cid);
+
+    /** Save session meta. */
+    void saveMeta(String cid, SessionMeta meta);
+
+    /** Load or create facts. */
+    @NonNull Facts loadFactsOrCreate(String cid);
+
+    /** Save facts. */
+    void saveFacts(String cid, Facts facts);
+
+    /** Load or create summary. */
+    @NonNull SummaryState loadSummaryOrCreate(String cid);
+
+    /** Save summary. */
+    void saveSummary(String cid, SummaryState summary);
+
+    /** Load recent conversation. */
+    @NonNull List<Message> loadRecent(String cid);
+
+    /** Rewrite the recent window. */
+    void rewriteRecent(String cid, List<Message> messages);
+
+    /** Write one archive chunk and return its metadata. */
+    ChunkMeta writeArchiveChunk(String cid, String chunkId, List<Message> messages);
+
+    /** Upsert one local vector document for retrieval. */
+    void upsertVector(String cid, ChunkMeta chunkMeta, String chunkText, float[] vector);
+
+    /** Search archived vector documents by similarity. */
+    List<RetrievalChunk> searchSimilar(String cid, float[] queryVector, int topK);
 }

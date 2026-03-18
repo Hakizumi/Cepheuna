@@ -1,9 +1,11 @@
 package org.sempiria.cepheuna.enums;
 
+import org.sempiria.cepheuna.memory.dto.ConversationEntity;
+
 /**
  * Conversation state enumeration.
  *
- * @see org.sempiria.cepheuna.entity.ConversationEntity
+ * @see ConversationEntity
  *
  * @since 1.0.0
  * @version 1.0.0
@@ -19,6 +21,6 @@ public enum ConversationState {
     /// Assistant is thinking ( Nothing output )
     THINKING,
 
-    /// Assistant is replying ( Both voice and text )
+    /// Assistant is replying ( Both voice and conversation )
     REPLYING
 }

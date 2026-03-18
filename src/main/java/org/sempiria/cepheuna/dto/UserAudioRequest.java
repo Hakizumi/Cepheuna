@@ -1,9 +1,9 @@
 package org.sempiria.cepheuna.dto;
 
 /**
- * User or assistant audio/text segment DTO.
+ * User or assistant audio/conversation segment DTO.
  *
- * @param text text content
+ * @param text conversation content
  * @param cid conversation id
  * @param utteranceId assistant utterance id, nullable for STT events
  * @param segmentIndex segment index in a single utterance, 0-based

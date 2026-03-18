@@ -7,7 +7,7 @@ import org.jspecify.annotations.NonNull;
  *
  * @param type command type, e.g. chat / stop / ping
  * @param cid conversation id
- * @param text user text
+ * @param text user conversation
  *
  * @since 1.0.0
  * @version 1.0.0

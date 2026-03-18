@@ -37,7 +37,7 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
     }
 
     /**
-     * @param text input text
+     * @param text input conversation
      * @return streaming PCM16LE audio chunks
      */
     @Override

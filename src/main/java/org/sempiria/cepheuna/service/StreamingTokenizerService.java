@@ -16,8 +16,8 @@ import java.util.function.Consumer;
  * <p>Key goals of this revision:
  * <ul>
  *     <li>keep sentence-level TTS input segmentation</li>
- *     <li>avoid splitting English text on whitespace such as "assist you"</li>
- *     <li>still emit early enough for CJK text that usually has no spaces</li>
+ *     <li>avoid splitting English conversation on whitespace such as "assist you"</li>
+ *     <li>still emit early enough for CJK conversation that usually has no spaces</li>
  * </ul>
  *
  * @since 1.0.0
@@ -157,7 +157,7 @@ public final class StreamingTokenizerService {
     /**
      * Only treat CJK characters as soft boundary hints.
      *
-     * <p>Do not treat whitespace as a boundary hint because English text is streamed token by token
+     * <p>Do not treat whitespace as a boundary hint because English conversation is streamed token by token
      * and the tokenizer would otherwise split on spaces in the middle of a sentence.
      */
     private boolean isNaturalPauseChar(char ch) {

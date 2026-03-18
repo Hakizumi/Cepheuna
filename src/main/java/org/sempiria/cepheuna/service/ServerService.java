@@ -6,8 +6,8 @@ import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.config.AudioProperties;
 import org.sempiria.cepheuna.dto.ChatRequest;
 import org.sempiria.cepheuna.dto.UserAudioRequest;
-import org.sempiria.cepheuna.entity.ConversationEntity;
 import org.sempiria.cepheuna.enums.ConversationState;
+import org.sempiria.cepheuna.memory.dto.ConversationEntity;
 import org.sempiria.cepheuna.repository.storage.ConversationStore;
 import org.sempiria.cepheuna.utils.AudioUtil;
 import org.springframework.http.codec.ServerSentEvent;
@@ -68,7 +68,7 @@ public class ServerService {
     public void onUserText(@NonNull String cid, @NonNull String text, @NonNull OutstreamService outstreamService) {
         String normalized = text.trim();
         if (normalized.isEmpty()) {
-            outstreamService.onError(cid, "Empty user text.");
+            outstreamService.onError(cid, "Empty user conversation.");
             return;
         }
 
@@ -199,7 +199,7 @@ public class ServerService {
 
         TtsPipeline pipeline = createTtsPipeline(cid, outstreamService);
 
-        conversation.currentAssistantSubscription = llmService.stream(new ChatRequest(text, cid))
+        conversation.currentAssistantSubscription = llmService.stream(new ChatRequest(conversation,text))
                 .doOnNext((event) -> handleAssistantEvent(conversation, tokenizer, pipeline, outstreamService, event))
                 .doOnError((ex) -> {
                     tokenizer.flush((segment) -> enqueueTtsSegment(conversation, pipeline, outstreamService, segment));

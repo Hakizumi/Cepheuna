@@ -24,9 +24,9 @@ import java.util.stream.Stream;
  *
  * <p>This tool provides constrained file I/O operations for agent use, including:
  * <ul>
- *     <li>Reading text files</li>
+ *     <li>Reading conversation files</li>
  *     <li>Reading binary files as Base64</li>
- *     <li>Writing text files</li>
+ *     <li>Writing conversation files</li>
  *     <li>Writing binary files from Base64</li>
  *     <li>Creating directories and files</li>
  *     <li>Listing directory trees</li>
@@ -51,7 +51,6 @@ import java.util.stream.Stream;
  */
 @Component
 public class IOTools implements AgentTool {
-
     private final @NonNull List<Path> whitelistPaths;
     private final @NonNull List<Path> blacklistPaths;
     private final boolean whitelistAll;
@@ -81,15 +80,15 @@ public class IOTools implements AgentTool {
     }
 
     /**
-     * Reads a text file using UTF-8 by default.
+     * Reads a conversation file using UTF-8 by default.
      *
      * @param filePath target file path
      * @param charsetName optional charset name, defaults to UTF-8 if null or blank
-     * @return file content as text
+     * @return file content as conversation
      */
-    @Tool(name = "read_file_text", description = "Read a text file from an accessible path.")
+    @Tool(name = "read_file_text", description = "Read a conversation file from an accessible path.")
     public @NonNull String readFileText(
-            @ToolParam(description = "Path to the text file") @NonNull String filePath,
+            @ToolParam(description = "Path to the conversation file") @NonNull String filePath,
             @ToolParam(description = "Optional charset name such as UTF-8 or GBK", required = false) @Nullable String charsetName
     ) {
         Path path = resolveAndCheck(filePath);
@@ -99,7 +98,7 @@ public class IOTools implements AgentTool {
         try {
             return Files.readString(path, charset);
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to read text file: " + path + ", reason: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to read conversation file: " + path + ", reason: " + e.getMessage(), e);
         }
     }
 
@@ -124,17 +123,17 @@ public class IOTools implements AgentTool {
     }
 
     /**
-     * Writes text content to a file.
+     * Writes conversation content to a file.
      *
      * @param filePath target file path
-     * @param content text content
+     * @param content conversation content
      * @param overwrite whether to overwrite when the file already exists
      * @param charsetName optional charset name, defaults to UTF-8 if null or blank
      * @return success message
      */
-    @Tool(name = "write_file_text", description = "Write text content to a file under an accessible path.")
+    @Tool(name = "write_file_text", description = "Write conversation content to a file under an accessible path.")
     public @NonNull String writeFileText(
-            @ToolParam(description = "Path to the text file to write") @NonNull String filePath,
+            @ToolParam(description = "Path to the conversation file to write") @NonNull String filePath,
             @ToolParam(description = "Text content to write") @NonNull String content,
             @ToolParam(description = "Whether to overwrite an existing file") boolean overwrite,
             @ToolParam(description = "Optional charset name such as UTF-8 or GBK", required = false) @Nullable String charsetName
@@ -152,7 +151,7 @@ public class IOTools implements AgentTool {
             Files.writeString(path, content, charset);
             return "Text file written successfully: " + path;
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to write text file: " + path + ", reason: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to write conversation file: " + path + ", reason: " + e.getMessage(), e);
         }
     }
 
@@ -194,7 +193,7 @@ public class IOTools implements AgentTool {
      *
      * @param dirPath target directory path
      * @param maxDepth max traversal depth, must be greater than or equal to 1
-     * @return human-readable directory tree text
+     * @return human-readable directory tree conversation
      */
     @Tool(name = "tree_dir", description = "List a directory tree for an accessible folder.")
     public @NonNull String treeDir(

@@ -31,7 +31,7 @@ public class PlatformUtil {
         return os.replaceAll("\\s+", "");
     }
 
-    public static String getArch() {
+    public static @NonNull String getArch() {
         String arch = System.getProperty("os.arch").toLowerCase();
 
         return switch (arch) {

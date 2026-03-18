@@ -96,7 +96,7 @@ spring:
       base-url: https://api.openai.com   # Api url,you can replace it with your own transit station
 ```
 
-#### And you can cover the configuration entries.( see [Configurable entries](README.md#configurable-entries) )
+#### And you can cover the configuration entries.( see one-kit-deployment-kit/config/application.yml to get more information )
 
 ### Third -- Run the jar-file
 #### If you are `Windows`,double-click the `start-windows.bat`
@@ -109,94 +109,9 @@ spring:
 
 ---
 
-## Configurable entries
-### In `application.yml`
-```yaml
-server:
-  port: 11622   # server port,default 11622 ( spring )
-
-spring:
-  ai:
-    openai:
-      api-key: your-api-key   # Must configure
-      base-url: https://api.openai.com   # openai api url
-
-      chat:
-        options:
-          model: gpt-4o-mini    # chat model
-
-      audio:
-        speech:
-          options:
-            model: gpt-4o-mini-tts    # speech model
-            voice: alloy
-            response-format: pcm      # format
-            speed: 1.08
-
-cepheuna:
-  audio:
-    # see org.sempiria.cepheuna.config.AudioProperties
-    sample-rate: 16000
-    bit-depth: 16
-    channels: 1
-    frame-ms: 20
-
-    asr-threads: 1
-    vad-rms-threshold: 0.015
-    silence-trigger-frame: 18
-    speech-trigger-frame: 6
-
-    buffer-high-ms: 2500
-    buffer-low-ms: 800
-    buffer-start-ms: 1200
-
-  models:
-    stt:
-    token-file-path: models/stt/tokens.txt
-    joiner-file-path: models/stt/joiner-epoch-99-avg-1.int8.onnx
-    encoder-file-path: models/stt/encoder-epoch-99-avg-1.int8.onnx
-    decoder-file-path: models/stt/decoder-epoch-99-avg-1.int8.onnx
-
-    tts:
-      # If not configure the 'tts' branch,or any following entries ( except 'language' ) is null
-      # Cepheuna will choose online text to speech mode ( Call online openai model )
-      token-file-path: models/tts/tokens.txt
-      voices-file-path: models/tts/voices.bin
-      model-file-path: models/tts/model.onnx
-      data-path: models/tts/espeak-ng-data
-      lexicon-file-path: models/tts/lexicon-us-en.txt
-      dict-path: models/tts/dict
-      language: en_us  # optional
-
-  tokenizer:
-    # see org.sempiria.cepheuna.config.StreamingTokenizerProperties
-    cut: ",.;?!~，。；？！\n"
-    soft-length: 48
-    aggressive-soft-length: 24
-    hard-length: 160
-    min-emit-chars: 12
-    aggressive-min-emit-chars: 8
-    
-  tools:
-    # config about ai-agent-tools
-    io-tools:
-      # see org.sempiria.cepheuna.tools.IOTools
-      whitelist-paths: /    # All
-      blacklist-paths: C:/  # blacklist paths ( model cannot access )
-
-      # If the whitelist and blacklist have duplicated entries, an IllegalArgumentException will be reported
-      
-logging:
-  level:
-    root: info
-    org.sempiria.cepheuna: debug  # optional,for logging
-```
-
----
-
 ## About **Cepheuna**
 * Github: https://github.com/Hakizumi/Cepheuna
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
 * Developer: `Hakizumi`
 * Contributors: None :(
-* Version: 1.2.3
+* Version: 1.3.0-beta
