@@ -7,6 +7,7 @@ import org.sempiria.cepheuna.config.AudioProperties;
 import org.sempiria.cepheuna.dto.ChatRequest;
 import org.sempiria.cepheuna.dto.UserAudioRequest;
 import org.sempiria.cepheuna.enums.ConversationState;
+import org.sempiria.cepheuna.memory.MemoryOrchestratorLLMServiceImpl;
 import org.sempiria.cepheuna.memory.dto.ConversationEntity;
 import org.sempiria.cepheuna.repository.storage.ConversationStore;
 import org.sempiria.cepheuna.utils.AudioUtil;
@@ -51,7 +52,7 @@ public class ServerService {
 
     public ServerService(
             ConversationStore conversationStore,
-            LLMService llmService,
+            MemoryOrchestratorLLMServiceImpl llmService,
             TtsService ttsService,
             SherpaOnnxSttService sherpaSttService,
             AudioProperties audioProperties,

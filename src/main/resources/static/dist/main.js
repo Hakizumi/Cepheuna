@@ -123,7 +123,7 @@ async function connect() {
                     log('[assistant_start]');
                     break;
                 case 'assistant_text':
-                    assistantLine += (msg.text ?? '');
+                    assistantLine += msg.text ?? '';
                     rewriteLastLines('assistant: ', assistantLine);
                     break;
                 case 'assistant_sentence':
@@ -141,15 +141,15 @@ async function connect() {
                     markSentenceAudioComplete(String(msg.utteranceId ?? activeUtteranceId ?? ''), Number(msg.seq ?? 0));
                     break;
                 case 'stt_partial':
-                    sttPartialLine = (msg.text ?? '');
+                    sttPartialLine = msg.text ?? '';
                     rewriteLastLines('stt: ', sttPartialLine);
                     break;
                 case 'stt_final':
                     sttPartialLine = '';
-                    log(`user: ${(msg.text ?? '')}`);
+                    log(`user: ${msg.text ?? ''}`);
                     break;
                 case 'error':
-                    log(`assistant: [server-error] ${(msg.message ?? 'unknown error')}`);
+                    log(`assistant: [server-error] ${msg.message ?? 'unknown error'}`);
                     break;
                 case 'connected':
                     log(`[connected] cid=${msg.cid ?? ''}`);
@@ -261,8 +261,9 @@ async function startMic() {
         processorNode.connect(audioCtx.destination);
         processorNode.onaudioprocess = (event) => {
             const socket = ws;
-            if (!socket || socket.readyState !== WebSocket.OPEN || !audioCtx)
+            if (!socket || socket.readyState !== WebSocket.OPEN || !audioCtx) {
                 return;
+            }
             const input = event.inputBuffer.getChannelData(0);
             const downsampled = downsample(input, audioCtx.sampleRate, 16000);
             const pcm16 = floatTo16BitPCM(downsampled);
@@ -342,7 +343,8 @@ function queueSentenceAudio(utteranceId, seq, chunkIndex, base64, format) {
     if (utteranceId && !activeUtteranceId) {
         activeUtteranceId = utteranceId;
     }
-    const state = sentencePlaybackStates.get(seq) ?? { chunks: new Map(), nextChunkIndex: 0, complete: false };
+    const state = sentencePlaybackStates.get(seq) ??
+        { chunks: new Map(), nextChunkIndex: 0, complete: false };
     state.chunks.set(chunkIndex, { chunkIndex, base64, format });
     sentencePlaybackStates.set(seq, state);
     drainSentencePlayback();
@@ -354,14 +356,16 @@ function markSentenceAudioComplete(utteranceId, seq) {
     if (utteranceId && !activeUtteranceId) {
         activeUtteranceId = utteranceId;
     }
-    const state = sentencePlaybackStates.get(seq) ?? { chunks: new Map(), nextChunkIndex: 0, complete: false };
+    const state = sentencePlaybackStates.get(seq) ??
+        { chunks: new Map(), nextChunkIndex: 0, complete: false };
     state.complete = true;
     sentencePlaybackStates.set(seq, state);
     drainSentencePlayback();
 }
 function drainSentencePlayback() {
     const generation = playbackGeneration;
-    drainPlaybackPromise = drainPlaybackPromise.then(async () => {
+    drainPlaybackPromise = drainPlaybackPromise
+        .then(async () => {
         if (generation !== playbackGeneration) {
             return;
         }
@@ -392,17 +396,19 @@ function drainSentencePlayback() {
                 return;
             }
         }
-    }).catch((err) => {
+    })
+        .catch((err) => {
         log(`[audio-error] ${err.message}`);
         console.error(err);
     });
 }
 async function queueAudio(base64, format) {
-    if ((format ?? '').toLowerCase() === 'pcm') {
-        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-        if (bytes.byteLength === 0) {
-            return;
-        }
+    const bytes = base64ToBytes(base64);
+    if (bytes.byteLength === 0) {
+        return;
+    }
+    const normalizedFormat = normalizeAudioFormat(format, bytes);
+    if (normalizedFormat === 'pcm') {
         pendingPcmBytes = concatBytes(pendingPcmBytes, bytes);
         if (pendingPcmBytes.byteLength >= PCM_MIN_BUFFER_BYTES) {
             const readyBytes = pendingPcmBytes;
@@ -412,15 +418,42 @@ async function queueAudio(base64, format) {
         return;
     }
     await flushPendingPcm();
-    await playDecodedChunk(base64);
+    await playDecodedChunk(bytes);
+}
+function normalizeAudioFormat(format, bytes) {
+    const lowered = (format ?? '').trim().toLowerCase();
+    if (looksLikeWav(bytes)) {
+        return 'wav';
+    }
+    if (lowered === 'pcm' || lowered === 'wav' || lowered === 'mp3' || lowered === 'opus' || lowered === 'aac' || lowered === 'flac') {
+        return lowered;
+    }
+    return 'pcm';
+}
+function base64ToBytes(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i) & 0xff;
+    }
+    return bytes;
+}
+function looksLikeWav(bytes) {
+    return (bytes.byteLength >= 12 &&
+        bytes[0] === 0x52 &&
+        bytes[1] === 0x49 &&
+        bytes[2] === 0x46 &&
+        bytes[3] === 0x46 &&
+        bytes[8] === 0x57 &&
+        bytes[9] === 0x41 &&
+        bytes[10] === 0x56 &&
+        bytes[11] === 0x45);
 }
 function concatBytes(a, b) {
-    if (a.byteLength === 0) {
+    if (a.byteLength === 0)
         return b;
-    }
-    if (b.byteLength === 0) {
+    if (b.byteLength === 0)
         return a;
-    }
     const out = new Uint8Array(a.byteLength + b.byteLength);
     out.set(a, 0);
     out.set(b, a.byteLength);
@@ -445,12 +478,13 @@ async function schedulePcmBytes(bytes) {
     if (evenLength < 2) {
         return;
     }
-    const bufferSlice = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + evenLength);
-    const pcm = new Int16Array(bufferSlice);
-    const audioBuffer = ctx.createBuffer(1, pcm.length, PLAYBACK_SAMPLE_RATE);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, evenLength);
+    const frameCount = evenLength / 2;
+    const audioBuffer = ctx.createBuffer(1, frameCount, PLAYBACK_SAMPLE_RATE);
     const channel = audioBuffer.getChannelData(0);
-    for (let i = 0; i < pcm.length; i += 1) {
-        channel[i] = (pcm[i] ?? 0) / 32768;
+    for (let i = 0; i < frameCount; i += 1) {
+        const sample = view.getInt16(i * 2, true);
+        channel[i] = sample / 32768;
     }
     applyFade(channel);
     const now = ctx.currentTime;
@@ -474,8 +508,7 @@ function applyFade(channel) {
         channel[tailIndex] = (channel[tailIndex] ?? 0) * gainOut;
     }
 }
-async function playDecodedChunk(base64) {
-    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+async function playDecodedChunk(bytes) {
     const generation = playbackGeneration;
     const ctx = await ensurePlaybackContext();
     if (generation !== playbackGeneration) {

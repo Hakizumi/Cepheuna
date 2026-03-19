@@ -18,6 +18,6 @@ public record FrontendWsCommand(String type, String cid, String text) {
      * Returns the normalized command type.
      */
     public @NonNull String normalizedType() {
-        return type == null ? "" : type.trim().toLowerCase();
+        return type == null ? "" : type.trim();
     }
 }

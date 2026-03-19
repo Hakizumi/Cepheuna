@@ -18,7 +18,7 @@ import java.nio.file.Path;
  * because conversation to speech will cost several seconds.
  *
  * @since 1.0.0
- * @version 1.3.0-beta
+ * @version 1.3.0
  * @author Sempiria
  */
 @SpringBootApplication

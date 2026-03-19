@@ -48,11 +48,6 @@ public class PromptBuilder {
             prompt.append("Relevant past context:\n").append(retrievalText);
         }
 
-        if (ctx.getRecentMessages() != null && !ctx.getRecentMessages().isEmpty()) {
-            prompt.append("Recent conversation conversation:");
-            prompt.append(ctx.getRecentMessages());
-        }
-
         return prompt.toString();
     }
 

@@ -60,6 +60,8 @@ public class OpenaiOnlineLLMServiceImpl implements BasicLLMService {
                     .build());
         }
 
+        log.debug("Conversation-{} messages: {} input: {}",req.conversation().getCid(),req.conversation().getMessagesWithoutSystem(),req.userInput());
+
         AtomicReference<String> last = new AtomicReference<>("");
 
         return Flux.concat(

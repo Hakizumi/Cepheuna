@@ -83,10 +83,10 @@ java --version
 ```
 #### If java version is printed successfully,that means JRE is deployed successfully.
 
-### First -- Download latest version of Cepheuna one-click deployment package on [Cepheuna-releases](https://github.com/Hakizumi/Cepheuna/releases),and move it to a proper path
+### First -- Download latest version of Cepheuna one-click deployment kit on [Cepheuna-releases](https://github.com/Hakizumi/Cepheuna/releases),and move it to a proper path
 > The one-click deployment kit is already integrated stt and tts models,that means you don't need to download the Sherpa models yourself. 
 
-### Second -- Unzip the Cepheuna one-click deployment package
+### Second -- Unzip the Cepheuna one-click deployment kit
 #### In `./config/application.yml`
 ```yaml
 spring:
@@ -96,11 +96,12 @@ spring:
       base-url: https://api.openai.com   # Api url,you can replace it with your own transit station
 ```
 
-#### And you can cover the configuration entries.( see one-kit-deployment-kit/config/application.yml to get more information )
+#### And you can cover the configuration entries.( see one-click-deployment-kit/config/application.yml to get more information )
 
 ### Third -- Run the jar-file
 #### If you are `Windows`,double-click the `start-windows.bat`
-#### If you are `Mac/Linux`,double-click the `start-mac-linux.sh`
+#### If you are `Mac/Linux aarch64`,double-click the `start-mac-linux-aarch64.sh`
+#### If you are `Mac/Linux x64`,double-click the `start-mac-linux-x64.sh`
 
 ### Forth -- Talk with **Cepheuna**
 #### Open your browser ( Any one is ok ) and access http://localhost:11622/

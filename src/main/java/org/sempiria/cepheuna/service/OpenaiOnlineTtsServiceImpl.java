@@ -11,22 +11,19 @@ import org.springframework.ai.openai.api.OpenAiAudioApi;
 import reactor.core.publisher.Flux;
 
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Assistant TTS service.
  *
- * <p>Input is sentence-segmented, but output stays streaming. To minimize latency and avoid the
- * previous hiss/crackle issue, this implementation explicitly requests PCM from the provider and
- * normalizes each emitted chunk so the browser always receives PCM16LE mono bytes with even frame
- * alignment.
- *
- * @since 1.2.0-beta
- * @version 1.2.0
- * @author Sempiria
+ * <p>Streaming output uses PCM16LE mono for low latency browser playback.
+ * The normalizer keeps frame alignment safe and strips accidental WAV headers
+ * if an upstream gateway prepends them.
  */
 @Slf4j
 public class OpenaiOnlineTtsServiceImpl implements TtsService {
+
     private static final OpenAiAudioApi.SpeechRequest.AudioResponseFormat AUDIO_FORMAT =
             OpenAiAudioApi.SpeechRequest.AudioResponseFormat.PCM;
 
@@ -58,6 +55,7 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
                 .map((resp) -> resp.getResult().getOutput())
                 .filter((chunk) -> chunk.length > 0)
                 .flatMapIterable(normalizer::normalize)
+                .concatWith(Flux.defer(() -> Flux.fromIterable(normalizer.flushRemainder())))
                 .doOnError((ex) -> log.warn("TTS stream failed: {}", ex.getMessage(), ex));
     }
 
@@ -81,7 +79,7 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
 
         @NonNull Iterable<byte[]> normalize(byte @Nullable [] incoming) {
             if (incoming == null || incoming.length == 0) {
-                return java.util.List.of();
+                return List.of();
             }
 
             byte[] chunk = incoming;
@@ -90,7 +88,7 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
             }
 
             if (chunk.length == 0 && carry.length == 0) {
-                return java.util.List.of();
+                return List.of();
             }
 
             ByteArrayOutputStream out = new ByteArrayOutputStream(carry.length + chunk.length);
@@ -99,10 +97,11 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
                 carry = new byte[0];
             }
             out.write(chunk, 0, chunk.length);
+
             byte[] merged = out.toByteArray();
             if (merged.length < 2) {
                 carry = merged;
-                return java.util.List.of();
+                return List.of();
             }
 
             int evenLength = merged.length - (merged.length % 2);
@@ -111,13 +110,26 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
             System.arraycopy(merged, 0, emit, 0, evenLength);
 
             if (evenLength < merged.length) {
-                carry = new byte[]{merged[merged.length - 1]};
-            }
-            else {
+                carry = new byte[] { merged[merged.length - 1] };
+            } else {
                 carry = new byte[0];
             }
 
-            return java.util.List.of(emit);
+            return List.of(emit);
+        }
+
+        @NonNull Iterable<byte[]> flushRemainder() {
+            if (carry.length < 2) {
+                carry = new byte[0];
+                return List.of();
+            }
+
+            int evenLength = carry.length - (carry.length % 2);
+
+            byte[] emit = new byte[evenLength];
+            System.arraycopy(carry, 0, emit, 0, evenLength);
+            carry = new byte[0];
+            return List.of(emit);
         }
 
         @Contract(pure = true)
@@ -129,17 +141,25 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
 
         private byte[] stripWavHeader(byte @NonNull [] wavBytes) {
             int offset = 12;
+
             while (offset + 8 <= wavBytes.length) {
                 int chunkSize = littleEndianInt(wavBytes, offset + 4);
-                if (wavBytes[offset] == 'd' && wavBytes[offset + 1] == 'a' && wavBytes[offset + 2] == 't' && wavBytes[offset + 3] == 'a') {
+
+                if (wavBytes[offset] == 'd'
+                        && wavBytes[offset + 1] == 'a'
+                        && wavBytes[offset + 2] == 't'
+                        && wavBytes[offset + 3] == 'a') {
                     int dataStart = offset + 8;
                     int safeSize = Math.max(0, Math.min(chunkSize, wavBytes.length - dataStart));
                     byte[] data = new byte[safeSize];
                     System.arraycopy(wavBytes, dataStart, data, 0, safeSize);
                     return data;
                 }
-                offset += 8 + Math.max(0, chunkSize);
+
+                int paddedChunkSize = Math.max(0, chunkSize) + (chunkSize & 1);
+                offset += 8 + paddedChunkSize;
             }
+
             return wavBytes;
         }
 

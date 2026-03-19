@@ -68,6 +68,7 @@ public class ServerWebSocketHandler extends AbstractWebSocketHandler {
         String payload = message.getPayload();
 
         FrontendWsCommand command = tryParseCommand(payload, cid);
+
         if (command == null) {
             serverService.onUserText(cid, payload, outstream);
             return;

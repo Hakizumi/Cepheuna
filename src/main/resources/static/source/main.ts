@@ -49,31 +49,31 @@ let mediaStream: MediaStream | null = null;
 let sourceNode: MediaStreamAudioSourceNode | null = null;
 let processorNode: ScriptProcessorNode | null = null;
 let playbackCtx: AudioContext | null = null;
-let playbackCursorTime: number = 0;
-let playbackGeneration: number = 0;
-let isConnecting: boolean = false;
-let isMicRunning: boolean = false;
-let assistantLine: string = '';
-let sttPartialLine: string = '';
-let activeUtteranceId: string = '';
-let nextSentenceSeqToPlay: number = 0;
+let playbackCursorTime = 0;
+let playbackGeneration = 0;
+let isConnecting = false;
+let isMicRunning = false;
+let assistantLine = '';
+let sttPartialLine = '';
+let activeUtteranceId = '';
+let nextSentenceSeqToPlay = 0;
 let sentencePlaybackStates: Map<number, SentencePlaybackState> = new Map();
 let drainPlaybackPromise: Promise<void> = Promise.resolve();
 let pendingPcmBytes: Uint8Array = new Uint8Array(0);
 
-const logEl:HTMLPreElement = mustGet<HTMLPreElement>('log');
-const cidEl:HTMLInputElement = mustGet<HTMLInputElement>('cid');
-const wsUrlEl:HTMLInputElement = mustGet<HTMLInputElement>('wsUrl');
-const promptEl:HTMLTextAreaElement = mustGet<HTMLTextAreaElement>('prompt');
-const connectBtn:HTMLButtonElement = mustGet<HTMLButtonElement>('connectBtn');
-const disconnectBtn:HTMLButtonElement = mustGet<HTMLButtonElement>('disconnectBtn');
-const sendBtn:HTMLButtonElement = mustGet<HTMLButtonElement>('sendBtn');
-const startMicBtn:HTMLButtonElement = mustGet<HTMLButtonElement>('startMicBtn');
-const stopMicBtn:HTMLButtonElement = mustGet<HTMLButtonElement>('stopMicBtn');
-const stopAssistantBtn:HTMLButtonElement = mustGet<HTMLButtonElement>('stopAssistantBtn');
+const logEl: HTMLPreElement = mustGet<HTMLPreElement>('log');
+const cidEl: HTMLInputElement = mustGet<HTMLInputElement>('cid');
+const wsUrlEl: HTMLInputElement = mustGet<HTMLInputElement>('wsUrl');
+const promptEl: HTMLTextAreaElement = mustGet<HTMLTextAreaElement>('prompt');
+const connectBtn: HTMLButtonElement = mustGet<HTMLButtonElement>('connectBtn');
+const disconnectBtn: HTMLButtonElement = mustGet<HTMLButtonElement>('disconnectBtn');
+const sendBtn: HTMLButtonElement = mustGet<HTMLButtonElement>('sendBtn');
+const startMicBtn: HTMLButtonElement = mustGet<HTMLButtonElement>('startMicBtn');
+const stopMicBtn: HTMLButtonElement = mustGet<HTMLButtonElement>('stopMicBtn');
+const stopAssistantBtn: HTMLButtonElement = mustGet<HTMLButtonElement>('stopAssistantBtn');
 
 function mustGet<T extends HTMLElement>(id: string): T {
-  const el:HTMLElement | null = document.getElementById(id);
+  const el = document.getElementById(id);
   if (!el) throw new Error(`Missing element #${id}`);
   return el as T;
 }
@@ -102,7 +102,7 @@ function currentCid(): string {
 }
 
 function buildWsUrl(): string {
-  const raw:string = wsUrlEl.value.trim();
+  const raw = wsUrlEl.value.trim();
   if (!raw) throw new Error('WebSocket URL is empty');
 
   const url = new URL(raw, window.location.href);
@@ -115,7 +115,7 @@ function isSocketOpen(): boolean {
 }
 
 function updateUiState(): void {
-  const connected:boolean = isSocketOpen();
+  const connected = isSocketOpen();
   connectBtn.disabled = connected || isConnecting;
   disconnectBtn.disabled = !connected && !isConnecting;
   sendBtn.disabled = !connected;
@@ -167,7 +167,7 @@ async function connect(): Promise<void> {
     };
 
     ws.onmessage = async (event: MessageEvent<string>) => {
-      const msg:WsIncomingMessage | null = parseMessage(event.data);
+      const msg = parseMessage(event.data);
       if (!msg) return;
 
       switch (msg.type) {
@@ -177,16 +177,19 @@ async function connect(): Promise<void> {
           resetPlaybackSchedule();
           log('[assistant_start]');
           break;
+
         case 'assistant_text':
-          assistantLine += ((msg.text as string) ?? '');
+          assistantLine += (msg.text as string) ?? '';
           rewriteLastLines('assistant: ', assistantLine);
           break;
+
         case 'assistant_sentence':
           if (typeof msg.utteranceId === 'string') {
             activeUtteranceId = msg.utteranceId;
           }
           log(`[tts_queue] #${msg.seq ?? 0} ${msg.text ?? ''}`);
           break;
+
         case 'assistant_audio':
           if (msg.audioBase64) {
             queueSentenceAudio(
@@ -198,23 +201,32 @@ async function connect(): Promise<void> {
             );
           }
           break;
+
         case 'assistant_audio_complete':
-          markSentenceAudioComplete(String(msg.utteranceId ?? activeUtteranceId ?? ''), Number(msg.seq ?? 0));
+          markSentenceAudioComplete(
+            String(msg.utteranceId ?? activeUtteranceId ?? ''),
+            Number(msg.seq ?? 0),
+          );
           break;
+
         case 'stt_partial':
-          sttPartialLine = ((msg.text as string) ?? '');
+          sttPartialLine = (msg.text as string) ?? '';
           rewriteLastLines('stt: ', sttPartialLine);
           break;
+
         case 'stt_final':
           sttPartialLine = '';
-          log(`user: ${((msg.text as string) ?? '')}`);
+          log(`user: ${(msg.text as string) ?? ''}`);
           break;
+
         case 'error':
-          log(`assistant: [server-error] ${((msg.message as string) ?? 'unknown error')}`);
+          log(`assistant: [server-error] ${(msg.message as string) ?? 'unknown error'}`);
           break;
+
         case 'connected':
           log(`[connected] cid=${msg.cid ?? ''}`);
           break;
+
         case 'assistant_finish':
         case 'assistant_done':
         case 'stopped':
@@ -232,6 +244,7 @@ async function connect(): Promise<void> {
             resetPlaybackSchedule();
           }
           break;
+
         default:
           log(JSON.stringify(msg));
       }
@@ -292,6 +305,7 @@ function resetPlaybackSchedule(): void {
   sentencePlaybackStates = new Map();
   drainPlaybackPromise = Promise.resolve();
   pendingPcmBytes = new Uint8Array(0);
+
   if (playbackCtx && playbackCtx.state !== 'closed') {
     void playbackCtx.close();
   }
@@ -331,7 +345,9 @@ async function startMic(): Promise<void> {
 
     processorNode.onaudioprocess = (event: AudioProcessingEvent) => {
       const socket = ws;
-      if (!socket || socket.readyState !== WebSocket.OPEN || !audioCtx) return;
+      if (!socket || socket.readyState !== WebSocket.OPEN || !audioCtx) {
+        return;
+      }
 
       const input = event.inputBuffer.getChannelData(0);
       const downsampled = downsample(input, audioCtx.sampleRate, 16000);
@@ -381,6 +397,7 @@ function stopAssistant(): void {
 
 function downsample(input: Float32Array, inputRate: number, outputRate: number): Float32Array {
   if (outputRate >= inputRate) return input;
+
   const ratio = inputRate / outputRate;
   const newLength = Math.max(1, Math.round(input.length / ratio));
   const result = new Float32Array(newLength);
@@ -415,7 +432,13 @@ function floatTo16BitPCM(input: Float32Array): Int16Array {
   return out;
 }
 
-function queueSentenceAudio(utteranceId: string, seq: number, chunkIndex: number, base64: string, format: string): void {
+function queueSentenceAudio(
+  utteranceId: string,
+  seq: number,
+  chunkIndex: number,
+  base64: string,
+  format: string,
+): void {
   if (utteranceId && activeUtteranceId && utteranceId !== activeUtteranceId) {
     return;
   }
@@ -423,7 +446,10 @@ function queueSentenceAudio(utteranceId: string, seq: number, chunkIndex: number
     activeUtteranceId = utteranceId;
   }
 
-  const state = sentencePlaybackStates.get(seq) ?? { chunks: new Map<number, BufferedAudioChunk>(), nextChunkIndex: 0, complete: false };
+  const state =
+    sentencePlaybackStates.get(seq) ??
+    { chunks: new Map<number, BufferedAudioChunk>(), nextChunkIndex: 0, complete: false };
+
   state.chunks.set(chunkIndex, { chunkIndex, base64, format });
   sentencePlaybackStates.set(seq, state);
   drainSentencePlayback();
@@ -437,7 +463,10 @@ function markSentenceAudioComplete(utteranceId: string, seq: number): void {
     activeUtteranceId = utteranceId;
   }
 
-  const state = sentencePlaybackStates.get(seq) ?? { chunks: new Map<number, BufferedAudioChunk>(), nextChunkIndex: 0, complete: false };
+  const state =
+    sentencePlaybackStates.get(seq) ??
+    { chunks: new Map<number, BufferedAudioChunk>(), nextChunkIndex: 0, complete: false };
+
   state.complete = true;
   sentencePlaybackStates.set(seq, state);
   drainSentencePlayback();
@@ -445,55 +474,60 @@ function markSentenceAudioComplete(utteranceId: string, seq: number): void {
 
 function drainSentencePlayback(): void {
   const generation = playbackGeneration;
-  drainPlaybackPromise = drainPlaybackPromise.then(async () => {
-    if (generation !== playbackGeneration) {
-      return;
-    }
 
-    while (generation === playbackGeneration) {
-      const state = sentencePlaybackStates.get(nextSentenceSeqToPlay);
-      if (!state) {
+  drainPlaybackPromise = drainPlaybackPromise
+    .then(async () => {
+      if (generation !== playbackGeneration) {
         return;
       }
 
-      let advanced = false;
       while (generation === playbackGeneration) {
-        const chunk = state.chunks.get(state.nextChunkIndex);
-        if (!chunk) {
-          break;
+        const state = sentencePlaybackStates.get(nextSentenceSeqToPlay);
+        if (!state) {
+          return;
         }
 
-        state.chunks.delete(state.nextChunkIndex);
-        state.nextChunkIndex += 1;
-        advanced = true;
-        await queueAudio(chunk.base64, chunk.format);
-      }
+        let advanced = false;
+        while (generation === playbackGeneration) {
+          const chunk = state.chunks.get(state.nextChunkIndex);
+          if (!chunk) {
+            break;
+          }
 
-      if (state.complete && state.chunks.size === 0) {
-        await flushPendingPcm();
-        sentencePlaybackStates.delete(nextSentenceSeqToPlay);
-        nextSentenceSeqToPlay += 1;
-        advanced = true;
-        continue;
-      }
+          state.chunks.delete(state.nextChunkIndex);
+          state.nextChunkIndex += 1;
+          advanced = true;
+          await queueAudio(chunk.base64, chunk.format);
+        }
 
-      if (!advanced) {
-        return;
+        if (state.complete && state.chunks.size === 0) {
+          await flushPendingPcm();
+          sentencePlaybackStates.delete(nextSentenceSeqToPlay);
+          nextSentenceSeqToPlay += 1;
+          advanced = true;
+          continue;
+        }
+
+        if (!advanced) {
+          return;
+        }
       }
-    }
-  }).catch((err: unknown) => {
-    log(`[audio-error] ${(err as Error).message}`);
-    console.error(err);
-  });
+    })
+    .catch((err: unknown) => {
+      log(`[audio-error] ${(err as Error).message}`);
+      console.error(err);
+    });
 }
 
 async function queueAudio(base64: string, format: string): Promise<void> {
-  if ((format ?? '').toLowerCase() === 'pcm') {
-    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-    if (bytes.byteLength === 0) {
-      return;
-    }
+  const bytes = base64ToBytes(base64);
+  if (bytes.byteLength === 0) {
+    return;
+  }
 
+  const normalizedFormat = normalizeAudioFormat(format, bytes);
+
+  if (normalizedFormat === 'pcm') {
     pendingPcmBytes = concatBytes(pendingPcmBytes, bytes);
     if (pendingPcmBytes.byteLength >= PCM_MIN_BUFFER_BYTES) {
       const readyBytes = pendingPcmBytes;
@@ -502,17 +536,50 @@ async function queueAudio(base64: string, format: string): Promise<void> {
     }
     return;
   }
+
   await flushPendingPcm();
-  await playDecodedChunk(base64);
+  await playDecodedChunk(bytes);
+}
+
+function normalizeAudioFormat(format: string, bytes: Uint8Array): string {
+  const lowered = (format ?? '').trim().toLowerCase();
+
+  if (looksLikeWav(bytes)) {
+    return 'wav';
+  }
+  if (lowered === 'pcm' || lowered === 'wav' || lowered === 'mp3' || lowered === 'opus' || lowered === 'aac' || lowered === 'flac') {
+    return lowered;
+  }
+
+  return 'pcm';
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i) & 0xff;
+  }
+  return bytes;
+}
+
+function looksLikeWav(bytes: Uint8Array): boolean {
+  return (
+    bytes.byteLength >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x41 &&
+    bytes[10] === 0x56 &&
+    bytes[11] === 0x45
+  );
 }
 
 function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
-  if (a.byteLength === 0) {
-    return b;
-  }
-  if (b.byteLength === 0) {
-    return a;
-  }
+  if (a.byteLength === 0) return b;
+  if (b.byteLength === 0) return a;
 
   const out = new Uint8Array(a.byteLength + b.byteLength);
   out.set(a, 0);
@@ -543,22 +610,26 @@ async function schedulePcmBytes(bytes: Uint8Array): Promise<void> {
     return;
   }
 
-  const bufferSlice = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + evenLength);
-  const pcm = new Int16Array(bufferSlice);
-  const audioBuffer = ctx.createBuffer(1, pcm.length, PLAYBACK_SAMPLE_RATE);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, evenLength);
+  const frameCount = evenLength / 2;
+  const audioBuffer = ctx.createBuffer(1, frameCount, PLAYBACK_SAMPLE_RATE);
   const channel = audioBuffer.getChannelData(0);
 
-  for (let i = 0; i < pcm.length; i += 1) {
-    channel[i] = (pcm[i] ?? 0) / 32768;
+  for (let i = 0; i < frameCount; i += 1) {
+    const sample = view.getInt16(i * 2, true);
+    channel[i] = sample / 32768;
   }
+
   applyFade(channel);
 
   const now = ctx.currentTime;
   const startAt = Math.max(now + PLAYBACK_LEAD_SECONDS, playbackCursorTime || 0);
+
   const source = ctx.createBufferSource();
   source.buffer = audioBuffer;
   source.connect(ctx.destination);
   source.start(startAt);
+
   playbackCursorTime = startAt + audioBuffer.duration;
 }
 
@@ -577,20 +648,23 @@ function applyFade(channel: Float32Array): void {
   }
 }
 
-async function playDecodedChunk(base64: string): Promise<void> {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+async function playDecodedChunk(bytes: Uint8Array): Promise<void> {
   const generation = playbackGeneration;
   const ctx = await ensurePlaybackContext();
   if (generation !== playbackGeneration) {
     return;
   }
 
-  const audioBuffer = await ctx.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  const audioBuffer = await ctx.decodeAudioData(
+    <ArrayBuffer>bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  );
+
   const startAt = Math.max(ctx.currentTime + PLAYBACK_LEAD_SECONDS, playbackCursorTime || 0);
   const source = ctx.createBufferSource();
   source.buffer = audioBuffer;
   source.connect(ctx.destination);
   source.start(startAt);
+
   playbackCursorTime = startAt + audioBuffer.duration;
 }
 

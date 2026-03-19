@@ -128,4 +128,13 @@ public class ConversationEntity {
         assistantActive.set(false);
         currentUtteranceId = null;
     }
+
+    /**
+     * Get conversation messages without system prompt
+     */
+    public List<Message> getMessagesWithoutSystem() {
+        return messages.stream()
+                .filter((msg) -> msg.getMessageType() != MessageType.SYSTEM)
+                .toList();
+    }
 }

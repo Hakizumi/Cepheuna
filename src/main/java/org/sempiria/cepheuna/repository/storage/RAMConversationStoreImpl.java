@@ -15,11 +15,9 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,7 +33,7 @@ public class RAMConversationStoreImpl implements ConversationStore {
     private static final String META_FILE = "meta.json";
     private static final String FACTS_FILE = "facts.json";
     private static final String SUMMARY_FILE = "summary.json";
-    private static final String RECENT_FILE = "recent.jsonl";
+    private static final String RECENT_FILE = "recent.json";
     private static final String ARCHIVE_DIR = "archive";
     private static final String VECTOR_DIR = "vector";
     private static final String VECTOR_FILE = "index.json";
@@ -155,6 +153,7 @@ public class RAMConversationStoreImpl implements ConversationStore {
     @Override
     public void saveSummary(@NonNull String cid, @NonNull SummaryState summary) {
         ConversationEntity entity = getConversationMemoryOrStorage(cid);
+
         entity.getSummary().setEntries(new LinkedHashMap<>(summary.getEntries()));
         entity.getSummary().setUpdatedAt(summary.getUpdatedAt());
         persistSummary(cid, entity.getSummary());
@@ -183,13 +182,13 @@ public class RAMConversationStoreImpl implements ConversationStore {
 
         ChunkMeta meta = new ChunkMeta();
         meta.setChunkId(chunkId);
-        meta.setFileName(chunkId + ".jsonl");
+        meta.setFileName(chunkId + ".json");
         meta.setMessageCount(copied.size());
         meta.setStartTs(extractStartTs());
         meta.setEndTs(System.currentTimeMillis());
 
         Path archiveFile = archiveDir(cid).resolve(meta.getFileName());
-        writeJsonLines(archiveFile, copied);
+        writeJson(archiveFile, copied);
         return meta;
     }
 
@@ -202,7 +201,7 @@ public class RAMConversationStoreImpl implements ConversationStore {
         doc.setVector(vector);
         doc.setEndTs(chunkMeta.getEndTs());
 
-        entity.getVectorDocuments().removeIf(item -> Objects.equals(item.getChunkId(), chunkMeta.getChunkId()));
+        entity.getVectorDocuments().removeIf((item) -> Objects.equals(item.getChunkId(), chunkMeta.getChunkId()));
         entity.getVectorDocuments().add(doc);
         persistVectors(cid, entity.getVectorDocuments());
     }
@@ -271,7 +270,29 @@ public class RAMConversationStoreImpl implements ConversationStore {
     }
 
     private void persistRecent(String cid, @Nullable List<Message> messages) {
-        writeJsonLines(sessionDir(cid).resolve(RECENT_FILE), messages == null ? List.of() : messages);
+        List<StoredMessage> stored = new ArrayList<>();
+        if (messages != null) {
+            for (Message message : messages) {
+                stored.add(fromMessage(message));
+            }
+        }
+        writeJson(sessionDir(cid).resolve(RECENT_FILE), stored);
+    }
+
+    private @NonNull StoredMessage fromMessage(Message message) {
+        StoredMessage stored = new StoredMessage();
+        stored.text = message.getText();
+
+        if (message instanceof AssistantMessage) {
+            stored.role = "ASSISTANT";
+        } else if (message instanceof SystemMessage) {
+            stored.role = "SYSTEM";
+        } else {
+            stored.role = "USER";
+        }
+
+        stored.metadata = Map.of("messageType", stored.role);
+        return stored;
     }
 
     private void persistVectors(String cid, @Nullable List<MemoryVectorDocument> docs) {
@@ -285,9 +306,9 @@ public class RAMConversationStoreImpl implements ConversationStore {
             return archive;
         }
         try (var stream = Files.list(dir)) {
-            stream.filter(path -> path.getFileName().toString().endsWith(".jsonl"))
+            stream.filter(path -> path.getFileName().toString().endsWith(".json"))
                     .sorted()
-                    .forEach(path -> archive.put(stripJsonl(path.getFileName().toString()), readMessages(path)));
+                    .forEach(path -> archive.put(stripJson(path.getFileName().toString()), readMessages(path)));
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to load archive chunks for cid=" + cid, ex);
         }
@@ -307,35 +328,22 @@ public class RAMConversationStoreImpl implements ConversationStore {
     }
 
     private @NonNull List<Message> readMessages(@NonNull Path file) {
-        List<Message> messages = new ArrayList<>();
         if (!Files.exists(file)) {
-            return messages;
+            return new ArrayList<>();
         }
         try {
-            for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-                if (line.isBlank()) {
-                    continue;
-                }
-                StoredMessage stored = objectMapper.readValue(line, StoredMessage.class);
+            List<StoredMessage> storedMessages = objectMapper.readValue(
+                    file.toFile(),
+                    new TypeReference<>() {}
+            );
+
+            List<Message> messages = new ArrayList<>();
+            for (StoredMessage stored : storedMessages) {
                 messages.add(toMessage(stored));
             }
             return messages;
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to read conversation: " + file, ex);
-        }
-    }
-
-    private void writeJsonLines(@NonNull Path file, @NonNull List<Message> messages) {
-        mkdirs(file.getParent());
-        List<String> lines = new ArrayList<>();
-        try {
-            for (Message message : messages) {
-                lines.add(objectMapper.writeValueAsString(fromMessage(message)));
-            }
-            Files.write(file, lines, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to write message file: " + file, ex);
         }
     }
 
@@ -363,22 +371,12 @@ public class RAMConversationStoreImpl implements ConversationStore {
         if (stored == null || stored.role == null) {
             return new UserMessage("");
         }
-        String text = stored.content == null ? "" : stored.content;
+        String text = stored.text == null ? "" : stored.text;
         return switch (stored.role.toLowerCase()) {
             case "assistant" -> new AssistantMessage(text);
             case "system" -> new SystemMessage(text);
             default -> new UserMessage(text);
         };
-    }
-
-    private @NonNull StoredMessage fromMessage(@Nullable Message message) {
-        StoredMessage stored = new StoredMessage();
-        stored.role = message == null
-                ? "user"
-                : message.getMessageType().name().toLowerCase();
-        stored.content = message == null ? "" : message.getText();
-        stored.ts = System.currentTimeMillis();
-        return stored;
     }
 
     private double cosine(float @Nullable [] a, float @Nullable [] b) {
@@ -414,8 +412,8 @@ public class RAMConversationStoreImpl implements ConversationStore {
         return cid.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
-    private @NonNull String stripJsonl(@NonNull String name) {
-        return name.endsWith(".jsonl") ? name.substring(0, name.length() - 6) : name;
+    private @NonNull String stripJson(@NonNull String name) {
+        return name.endsWith(".json") ? name.substring(0, name.length() - 6) : name;
     }
 
     private void mkdirs(@Nullable Path dir) {
@@ -443,11 +441,5 @@ public class RAMConversationStoreImpl implements ConversationStore {
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to delete path: " + path, ex);
         }
-    }
-
-    private static class StoredMessage {
-        public String role;
-        public @Nullable String content;
-        public long ts;
     }
 }

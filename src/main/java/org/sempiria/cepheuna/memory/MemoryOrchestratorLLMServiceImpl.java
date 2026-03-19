@@ -84,7 +84,7 @@ public class MemoryOrchestratorLLMServiceImpl implements LLMService {
         conversation.coverSystemPrompt(promptText);
         StringBuilder answerBuffer = new StringBuilder();
 
-        return llmService.stream(new ChatRequest(conversation, conversation.getCid()))
+        return llmService.stream(new ChatRequest(conversation, req.userInput()))
                 .doOnNext((event) -> {
                     if ("token".equals(event.event()) && event.data() != null) {
                         answerBuffer.append(event.data());
