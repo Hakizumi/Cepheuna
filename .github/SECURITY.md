@@ -4,9 +4,18 @@
 
 Currently supported versions:
 
-| Version | Supported |
-|---------|-----------|
-| 1.3.0   | Yes       |
+| Version    | Supported       | Reason / Description      |
+|------------|-----------------|---------------------------|
+| 1.3.1      | Yes             |                           |
+| 1.3.0      | Yes             |                           |
+| 1.3.0-beta | Unsupported     | Fatal bug                 |
+| 1.2.3      | Not recommended | No persist memory storage |
+| 1.2.2      | Only Windows    |                           |
+| 1.2.1      | Only Windows    |                           |
+| 1.2.0      | Only Windows    |                           |
+| 1.2.0-beta | Unsupported     | Fatal bug                 |
+| 1.1.3      | Only Windows    |                           |
+
 
 ## Reporting a Vulnerability
 
