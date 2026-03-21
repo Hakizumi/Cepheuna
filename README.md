@@ -7,7 +7,7 @@
 
 ## What can *Cepheuna* do?
 * **Real-time** conversational experience,you are able to cost less tokens to experient what it's like to be on a real call.
-* **Automatically** call tools to increase your productivity by 200%!
+* **Automatically** call tools
 * Talk to AI in the **cloud**.Even if your computer is not with you, you can still talk to Cepheuna and operate your computer through the web.
 
 ---
@@ -115,4 +115,7 @@ spring:
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
 * Developer: `Hakizumi`
 * Contributors: None :(
-* Version: 1.3.0-beta
+* Current Version: 1.3.0
+
+---
+
