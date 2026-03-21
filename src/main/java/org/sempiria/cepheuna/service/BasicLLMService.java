@@ -1,5 +1,6 @@
 package org.sempiria.cepheuna.service;
 
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.sempiria.cepheuna.dto.ChatRequest;
 import org.sempiria.cepheuna.dto.ChatResponse;
@@ -22,7 +23,7 @@ public interface BasicLLMService extends LLMService {
      * @return SSE-like event stream used internally by the websocket pipeline
      */
     @Override
-    @NonNull Flux<ServerSentEvent<String>> stream(@NonNull ChatRequest req);
+    @NonNull Flux<@NotNull ServerSentEvent<@NotNull String>> stream(@NonNull ChatRequest req);
 
     /**
      * Non-streaming reply.

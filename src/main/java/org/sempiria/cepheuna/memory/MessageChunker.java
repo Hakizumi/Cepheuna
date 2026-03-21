@@ -1,9 +1,11 @@
 package org.sempiria.cepheuna.memory;
 
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.config.ModelProperties;
 import org.sempiria.cepheuna.memory.dto.SplitResult;
+import org.sempiria.cepheuna.utils.StringUtil;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Component;
 
@@ -82,7 +84,7 @@ public class MessageChunker {
         return builder.toString();
     }
 
-    private String safeText(@Nullable Message message) {
-        return message == null || message.getText() == null ? "" : message.getText();
+    private @NotNull String safeText(@Nullable Message message) {
+        return message == null ? "" : StringUtil.nullToEmpty(message.getText());
     }
 }

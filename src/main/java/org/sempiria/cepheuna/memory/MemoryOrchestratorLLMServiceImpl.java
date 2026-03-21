@@ -1,5 +1,6 @@
 package org.sempiria.cepheuna.memory;
 
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.config.ModelProperties;
@@ -27,7 +28,7 @@ import java.util.List;
  * Orchestrated all memory components and call the basic llm service to produce reply.
  *
  * @since 1.3.0-beta
- * @version 1.0.0
+ * @version 1.0.1
  * @author Sempiria
  */
 @Component
@@ -73,7 +74,7 @@ public class MemoryOrchestratorLLMServiceImpl implements LLMService {
     }
 
     @Override
-    public @NonNull Flux<ServerSentEvent<String>> stream(@NonNull ChatRequest req) {
+    public @NonNull Flux<@NotNull ServerSentEvent<@NotNull String>> stream(@NonNull ChatRequest req) {
         if (req.conversation() == null || req.conversation().getCid().isBlank()) {
             return Flux.just(ServerSentEvent.builder("{\"error\":\"invalid conversation message\"}").event("status").build());
         }

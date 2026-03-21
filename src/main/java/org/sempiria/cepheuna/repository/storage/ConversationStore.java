@@ -10,24 +10,28 @@ import java.util.List;
 
 /**
  * Conversation state storage abstraction.
- *
- * <p>Besides the original in-memory conversation conversation, this interface now also acts as the
+ * <p>
+ * Besides the original in-memory conversation entity, this interface now also acts as the
  * integrated persistence boundary for layered memory files in single-machine production mode.
+ *
+ * @author Sempiria
+ * @since 1.0.0
+ * @version 1.1.0
  */
 public interface ConversationStore {
-    /** Get a conversation conversation by session id. */
+    /** Get a conversation entity by session id. */
     @Nullable ConversationEntity getConversationMemory(String cid);
 
-    /** Get a conversation conversation or return a detached default instance. */
+    /** Get a conversation entity or return a detached default instance. */
     @NonNull ConversationEntity getConversationMemoryOrDefault(String cid);
 
-    /** Get a conversation conversation or create and store it when absent. */
+    /** Get a conversation entity or create and store it when absent. */
     @NonNull ConversationEntity getConversationMemoryOrStorage(String cid);
 
-    /** Remove a conversation conversation from memory cache and underlying persistence. */
+    /** Remove a conversation entity from memory cache and underlying persistence. */
     ConversationEntity removeConversationMemory(String cid);
 
-    /** Add or replace a conversation conversation. */
+    /** Add or replace a conversation entity. */
     void addConversationMemory(String cid, ConversationEntity conversationEntity);
 
     /** Clear a single conversation. */

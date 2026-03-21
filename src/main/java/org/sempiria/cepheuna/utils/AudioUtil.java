@@ -90,6 +90,19 @@ public class AudioUtil {
         return out;
     }
 
+    /**
+     * Converts mono float PCM samples in {@code [-1, 1]} into signed 16-bit little-endian PCM.
+     */
+    public static byte @NonNull [] floatToPcm16(float @NonNull [] samples) {
+        ByteBuffer buffer = ByteBuffer.allocate(samples.length * 2).order(ByteOrder.LITTLE_ENDIAN);
+        for (float sample : samples) {
+            float clamped = Math.max(-1.0f, Math.min(1.0f, sample));
+            short pcm = (short) Math.round(clamped < 0 ? clamped * 32768.0f : clamped * 32767.0f);
+            buffer.putShort(pcm);
+        }
+        return buffer.array();
+    }
+
     private static byte @NonNull [] intLE(int v) {
         return ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(v).array();
     }

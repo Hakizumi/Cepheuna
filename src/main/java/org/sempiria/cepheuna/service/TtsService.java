@@ -1,27 +1,36 @@
 package org.sempiria.cepheuna.service;
 
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.sempiria.cepheuna.dto.AudioChunkFormat;
 import reactor.core.publisher.Flux;
 
 /**
- * Text to speech service
- * Old version is {@code AudioService}
+ * Text-to-speech abstraction used by the assistant streaming pipeline.
+ * <p>
+ * Implementations should emit chunks that are safe to forward directly to the browser.
+ * The matching {@link #audioFormat()} descriptor must fully describe those chunks so the
+ * front-end never needs provider-specific assumptions.
  *
- * @since 1.2.0-beta
- * @version 1.0.0
  * @author Sempiria
+ * @since 1.2.0-beta
+ * @version 1.0.1
  */
 public interface TtsService {
     /**
-     * Text to speech streaming
+     * Streams one synthesized utterance.
      *
-     * @param text input conversation
-     * @return a payload as a Flux
+     * @param text normalized assistant text
+     * @return streaming audio payload chunks
      */
-    @NonNull Flux<byte[]> ttsStream(@NonNull String text);
+    @NonNull Flux<byte @NotNull []> ttsStream(@NonNull String text);
 
     /**
-     * Browser playback format. The front-end should use decodeAudioData for this.
+     * Returns the format descriptor for streamed chunks.
+     *
+     * <p>The descriptor must remain stable for all chunks emitted by the current implementation.</p>
+     *
+     * @return explicit browser playback metadata
      */
-    @NonNull String outputFormat();
+    @NonNull AudioChunkFormat audioFormat();
 }

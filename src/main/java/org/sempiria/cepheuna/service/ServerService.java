@@ -1,6 +1,7 @@
 package org.sempiria.cepheuna.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.config.AudioProperties;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
 
 import java.nio.ByteBuffer;
@@ -27,14 +29,14 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * End-to-end server pipeline:
  * STT -> LLM(stream) -> tokenizer -> TTS(stream) -> websocket.
+ * <p>
+ * This version keeps sentence-level TTS input segmentation, runs sentence TTS jobs in parallel,
+ * and streams chunks to the browser as soon as they are ready. Playback ordering is preserved
+ * client-side using {@code (seq, chunkIndex)} plus an explicit sentence-complete signal.
  *
- * <p>This revision keeps sentence-level TTS input segmentation, but runs sentence TTS jobs in
- * parallel and streams chunks to the browser as soon as they are ready. Playback ordering is
- * preserved client-side using (seq, chunkIndex) and the explicit sentence-complete signal.
- *
- * @since 1.0.0
- * @version 1.2.0
  * @author Sempiria
+ * @since 1.0.0
+ * @version 1.2.1
  */
 @Service
 @Slf4j
@@ -47,7 +49,6 @@ public class ServerService {
     private final SherpaOnnxSttService sherpaSttService;
     private final AudioProperties audioProperties;
     private final StreamingTokenizerServiceStore streamingTokenizerServiceStore;
-
     private final Map<String, TtsPipeline> ttsPipelines = new ConcurrentHashMap<>();
 
     public ServerService(
@@ -147,7 +148,6 @@ public class ServerService {
         completeTtsPipeline(cid);
         outstreamService.stop();
         outstreamService.onStopped(cid);
-
         sherpaSttService.reset(cid);
     }
 
@@ -200,7 +200,7 @@ public class ServerService {
 
         TtsPipeline pipeline = createTtsPipeline(cid, outstreamService);
 
-        conversation.currentAssistantSubscription = llmService.stream(new ChatRequest(conversation,text))
+        conversation.currentAssistantSubscription = llmService.stream(new ChatRequest(conversation, text))
                 .doOnNext((event) -> handleAssistantEvent(conversation, tokenizer, pipeline, outstreamService, event))
                 .doOnError((ex) -> {
                     tokenizer.flush((segment) -> enqueueTtsSegment(conversation, pipeline, outstreamService, segment));
@@ -218,10 +218,7 @@ public class ServerService {
                     conversation.state = ConversationState.IDLE;
                 })
                 .onErrorResume((ex) -> Flux.empty())
-                .subscribe(
-                        null,
-                        (ex) -> log.debug("Assistant stream already handled error. cid={}", cid, ex)
-                );
+                .subscribe(null, (ex) -> log.debug("Assistant stream already handled error. cid={}", cid, ex));
     }
 
     private void handleAssistantEvent(
@@ -229,13 +226,12 @@ public class ServerService {
             @NonNull StreamingTokenizerService tokenizer,
             @NonNull TtsPipeline pipeline,
             @NonNull OutstreamService outstreamService,
-            @NonNull ServerSentEvent<String> event
+            @NonNull ServerSentEvent<@NotNull String> event
     ) {
         outstreamService.onAssistantEvent(event);
 
         String eventName = event.event();
         String data = event.data();
-
         if ("token".equals(eventName) && data != null && !data.isEmpty()) {
             conversation.state = ConversationState.REPLYING;
             boolean aggressive = conversation.segmentIndex == 0;
@@ -256,6 +252,7 @@ public class ServerService {
 
         String utteranceId = conversation.currentUtteranceId == null ? "" : conversation.currentUtteranceId;
         long seq = conversation.segmentIndex++;
+        assert utteranceId != null;
         outstreamService.onAssistantTtsQueued(utteranceId, seq, normalized);
 
         UserAudioRequest request = new UserAudioRequest(normalized, conversation.getCid(), utteranceId, seq);
@@ -268,7 +265,7 @@ public class ServerService {
             existing.dispose();
         }
 
-        Sinks.Many<UserAudioRequest> sink = Sinks.many().unicast().onBackpressureBuffer();
+        Sinks.Many<@NotNull UserAudioRequest> sink = Sinks.many().unicast().onBackpressureBuffer();
         Disposable disposable = sink.asFlux()
                 .flatMap((req) -> {
                             AtomicLong chunkCounter = new AtomicLong(0L);
@@ -279,7 +276,7 @@ public class ServerService {
                                             req.segmentIndex(),
                                             chunkCounter.getAndIncrement(),
                                             chunk,
-                                            ttsService.outputFormat()
+                                            ttsService.audioFormat()
                                     ))
                                     .doOnComplete(() -> outstreamService.onAssistantAudioComplete(
                                             req.cid(),
@@ -289,16 +286,20 @@ public class ServerService {
                                     .then(Mono.empty());
                         }, TTS_PARALLELISM)
                 .doOnError((ex) -> outstreamService.onError(cid, ex.getMessage() == null ? "TTS failed." : ex.getMessage()))
-                .doOnComplete(() -> outstreamService.onAssistantDone(cid))
+                .doFinally((signalType) -> notifyAssistantDone(signalType, cid, outstreamService))
                 .onErrorResume((ex) -> Flux.empty())
-                .subscribe(
-                        null,
-                        (ex) -> log.debug("TTS pipeline already handled error. cid={}", cid, ex)
-                );
+                .subscribe(null, (ex) -> log.debug("TTS pipeline already handled error. cid={}", cid, ex));
 
         TtsPipeline pipeline = new TtsPipeline(sink, disposable);
         ttsPipelines.put(cid, pipeline);
         return pipeline;
+    }
+
+    private void notifyAssistantDone(@NonNull SignalType signalType, @NonNull String cid, @NonNull OutstreamService outstreamService) {
+        if (signalType == SignalType.CANCEL) {
+            log.debug("TTS pipeline cancelled. cid={}", cid);
+        }
+        outstreamService.onAssistantDone(cid);
     }
 
     private void completeTtsPipeline(@NonNull String cid) {
@@ -308,17 +309,23 @@ public class ServerService {
         }
     }
 
-    private record TtsPipeline(Sinks.Many<UserAudioRequest> sink, Disposable disposable) {
-        void emit(UserAudioRequest request) {
-            sink.tryEmitNext(request);
+    private record TtsPipeline(Sinks.Many<@NotNull UserAudioRequest> sink, Disposable disposable) {
+        void emit(@NotNull UserAudioRequest request) {
+            Sinks.EmitResult result = sink.tryEmitNext(request);
+            if (result.isFailure()) {
+                log.warn("TTS sink emit failed. cid={}, seq={}, result={}", request.cid(), request.segmentIndex(), result);
+            }
         }
 
         void complete() {
-            sink.tryEmitComplete();
+            Sinks.EmitResult result = sink.tryEmitComplete();
+            if (result.isFailure() && result != Sinks.EmitResult.FAIL_TERMINATED) {
+                log.debug("TTS sink completion skipped: {}", result);
+            }
         }
 
         void dispose() {
-            sink.tryEmitComplete();
+            complete();
             if (!disposable.isDisposed()) {
                 disposable.dispose();
             }

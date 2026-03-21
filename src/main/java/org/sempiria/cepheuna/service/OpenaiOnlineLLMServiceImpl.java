@@ -1,6 +1,7 @@
 package org.sempiria.cepheuna.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.dto.ChatRequest;
@@ -18,8 +19,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Basic chat service.
- *
- * <p>This stable revision avoids per-request tool re-registration.
+ * <p>
+ * This stable revision avoids per-request tool re-registration.
  * Tools are already registered globally in {@code AiConfig#chatClient(...)}
  * through {@code builder.defaultTools(...)}. Registering them again here with
  * {@code spec.tools(...)} or {@code spec.toolCallbacks(...)} causes Spring AI
@@ -53,7 +54,7 @@ public class OpenaiOnlineLLMServiceImpl implements BasicLLMService {
      * @return SSE-like event stream used internally by the websocket pipeline
      */
     @Override
-    public @NonNull Flux<ServerSentEvent<String>> stream(@Nullable ChatRequest req) {
+    public @NonNull Flux<@NotNull ServerSentEvent<@NotNull String>> stream(@Nullable ChatRequest req) {
         if (req == null || req.conversation() == null) {
             return Flux.just(ServerSentEvent.builder("{\"error\":\"empty message\"}")
                     .event("status")
@@ -97,7 +98,7 @@ public class OpenaiOnlineLLMServiceImpl implements BasicLLMService {
         log.debug("Cancelled current assistant stream. cid={}", cid);
     }
 
-    private @NonNull Flux<ServerSentEvent<String>> buildStreamingTokenFlux(
+    private @NonNull Flux<@NotNull ServerSentEvent<@NotNull String>> buildStreamingTokenFlux(
             @NonNull ChatRequest req,
             @NonNull AtomicReference<String> last
     ) {

@@ -2,6 +2,7 @@ package org.sempiria.cepheuna.memory.dto;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.enums.ConversationState;
@@ -132,7 +133,7 @@ public class ConversationEntity {
     /**
      * Get conversation messages without system prompt
      */
-    public List<Message> getMessagesWithoutSystem() {
+    public @NotNull List<Message> getMessagesWithoutSystem() {
         return messages.stream()
                 .filter((msg) -> msg.getMessageType() != MessageType.SYSTEM)
                 .toList();

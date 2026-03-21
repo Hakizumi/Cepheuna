@@ -47,6 +47,7 @@ import java.util.stream.Stream;
  * path traversal issues.</p>
  *
  * @since 1.1.0
+ * @version 1.2.0
  * @author Sempiria
  */
 @Component
@@ -453,6 +454,13 @@ public class IOTools implements AgentTool {
         }
     }
 
+    /**
+     * Properties configuration class of IO tools
+     *
+     * @since 1.1.0
+     * @version 1.0.0
+     * @author Sempiria
+     */
     @ConfigurationProperties("cepheuna.tools.io-tools")
     @Setter
     public static class IOToolsProperties {

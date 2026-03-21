@@ -1,6 +1,8 @@
 package org.sempiria.cepheuna.service;
 
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.sempiria.cepheuna.dto.AudioChunkFormat;
 import org.sempiria.cepheuna.dto.UserAudioRequest;
 import org.springframework.http.codec.ServerSentEvent;
 
@@ -22,24 +24,24 @@ public interface OutstreamService {
         }
 
         @Override
-        public void onAssistantEvent(@NonNull ServerSentEvent<String> event) {
+        public void onAssistantEvent(@NonNull ServerSentEvent<@NotNull String> event) {
         }
     };
 
     /**
-     * User STT partial conversation.
+     * User STT partial text update.
      */
     void onUserPartialText(@NonNull UserAudioRequest request);
 
     /**
-     * User STT final conversation.
+     * User STT final text update.
      */
     void onUserFinalText(@NonNull UserAudioRequest request);
 
     /**
-     * Assistant conversation/token/status event, usually bridged from {@link OpenaiOnlineLLMServiceImpl}.
+     * Assistant token/status event, usually bridged from {@link OpenaiOnlineLLMServiceImpl}.
      */
-    void onAssistantEvent(@NonNull ServerSentEvent<String> event);
+    void onAssistantEvent(@NonNull ServerSentEvent<@NotNull String> event);
 
     /**
      * Called when a sentence is queued for TTS.
@@ -57,7 +59,7 @@ public interface OutstreamService {
             long seq,
             long chunkIndex,
             byte @NonNull [] audioBytes,
-            @NonNull String audioFormat
+            @NonNull AudioChunkFormat audioFormat
     ) {
         // no-op
     }
@@ -65,11 +67,7 @@ public interface OutstreamService {
     /**
      * Called when all chunks of one sentence have been emitted.
      */
-    default void onAssistantAudioComplete(
-            @NonNull String cid,
-            @NonNull String utteranceId,
-            long seq
-    ) {
+    default void onAssistantAudioComplete(@NonNull String cid, @NonNull String utteranceId, long seq) {
         // no-op
     }
 
@@ -102,14 +100,14 @@ public interface OutstreamService {
     }
 
     /**
-     * Called on server side errors.
+     * Called on server-side errors.
      */
     default void onError(@NonNull String cid, @NonNull String message) {
         // no-op
     }
 
     /**
-     * Stop local playback/output state immediately.
+     * Stops local playback/output state immediately.
      */
     default void stop() {
         // no-op

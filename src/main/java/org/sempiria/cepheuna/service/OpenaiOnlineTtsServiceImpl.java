@@ -2,8 +2,11 @@ package org.sempiria.cepheuna.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.sempiria.cepheuna.dto.AudioChunkFormat;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
@@ -15,17 +18,20 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Assistant TTS service.
+ * OpenAI-backed assistant TTS implementation.
  *
- * <p>Streaming output uses PCM16LE mono for low latency browser playback.
- * The normalizer keeps frame alignment safe and strips accidental WAV headers
- * if an upstream gateway prepends them.
+ * <p>The service normalizes upstream streaming chunks into browser-safe PCM16LE mono. It also
+ * strips accidental WAV headers and preserves 16-bit frame alignment across chunk boundaries.</p>
  */
 @Slf4j
 public class OpenaiOnlineTtsServiceImpl implements TtsService {
-
-    private static final OpenAiAudioApi.SpeechRequest.AudioResponseFormat AUDIO_FORMAT =
+    private static final OpenAiAudioApi.SpeechRequest.AudioResponseFormat AUDIO_RESPONSE_FORMAT =
             OpenAiAudioApi.SpeechRequest.AudioResponseFormat.PCM;
+    private static final int SAMPLE_RATE = 24_000;
+    private static final int CHANNELS = 1;
+    private static final int BITS_PER_SAMPLE = 16;
+    private static final AudioChunkFormat AUDIO_FORMAT =
+            new AudioChunkFormat("pcm_s16le", SAMPLE_RATE, CHANNELS, BITS_PER_SAMPLE, "");
 
     private final OpenAiAudioSpeechModel speechModel;
 
@@ -33,19 +39,15 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
         this.speechModel = speechModel;
     }
 
-    /**
-     * @param text input conversation
-     * @return streaming PCM16LE audio chunks
-     */
     @Override
-    public @NonNull Flux<byte[]> ttsStream(@NonNull String text) {
+    public @NonNull Flux<byte @NotNull []> ttsStream(@NonNull String text) {
         String normalized = text.trim();
         if (normalized.isEmpty()) {
             return Flux.empty();
         }
 
         OpenAiAudioSpeechOptions options = OpenAiAudioSpeechOptions.builder()
-                .responseFormat(AUDIO_FORMAT)
+                .responseFormat(AUDIO_RESPONSE_FORMAT)
                 .build();
 
         TextToSpeechPrompt prompt = new TextToSpeechPrompt(normalized, options);
@@ -60,24 +62,20 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
     }
 
     @Override
-    public @NonNull String outputFormat() {
-        return "pcm";
+    public @NonNull AudioChunkFormat audioFormat() {
+        return AUDIO_FORMAT;
     }
 
     /**
-     * Normalize provider chunks into safe PCM16LE chunks.
-     *
-     * <p>Why this exists:
-     * <ul>
-     *     <li>some providers or gateways may prepend a WAV header to the first chunk even when PCM was requested</li>
-     *     <li>chunk boundaries may split a 16-bit sample in half, causing loud crackle if forwarded directly</li>
-     * </ul>
+     * Normalizes provider chunks into safe PCM16LE frames.
      */
     private static final class PcmChunkNormalizer {
         private final AtomicBoolean firstChunk = new AtomicBoolean(true);
         private byte @NonNull [] carry = new byte[0];
 
-        @NonNull Iterable<byte[]> normalize(byte @Nullable [] incoming) {
+        @NonNull
+        @Unmodifiable
+        Iterable<byte[]> normalize(byte @Nullable [] incoming) {
             if (incoming == null || incoming.length == 0) {
                 return List.of();
             }
@@ -105,12 +103,11 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
             }
 
             int evenLength = merged.length - (merged.length % 2);
-
             byte[] emit = new byte[evenLength];
             System.arraycopy(merged, 0, emit, 0, evenLength);
 
             if (evenLength < merged.length) {
-                carry = new byte[] { merged[merged.length - 1] };
+                carry = new byte[]{merged[merged.length - 1]};
             } else {
                 carry = new byte[0];
             }
@@ -118,14 +115,15 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
             return List.of(emit);
         }
 
-        @NonNull Iterable<byte[]> flushRemainder() {
+        @NonNull
+        @Unmodifiable
+        Iterable<byte[]> flushRemainder() {
             if (carry.length < 2) {
                 carry = new byte[0];
                 return List.of();
             }
 
             int evenLength = carry.length - (carry.length % 2);
-
             byte[] emit = new byte[evenLength];
             System.arraycopy(carry, 0, emit, 0, evenLength);
             carry = new byte[0];
@@ -141,10 +139,8 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
 
         private byte[] stripWavHeader(byte @NonNull [] wavBytes) {
             int offset = 12;
-
             while (offset + 8 <= wavBytes.length) {
                 int chunkSize = littleEndianInt(wavBytes, offset + 4);
-
                 if (wavBytes[offset] == 'd'
                         && wavBytes[offset + 1] == 'a'
                         && wavBytes[offset + 2] == 't'
@@ -159,7 +155,6 @@ public class OpenaiOnlineTtsServiceImpl implements TtsService {
                 int paddedChunkSize = Math.max(0, chunkSize) + (chunkSize & 1);
                 offset += 8 + paddedChunkSize;
             }
-
             return wavBytes;
         }
 

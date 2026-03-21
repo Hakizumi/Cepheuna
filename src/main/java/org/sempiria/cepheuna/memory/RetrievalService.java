@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.config.ModelProperties;
 import org.sempiria.cepheuna.memory.dto.RetrievalChunk;
 import org.sempiria.cepheuna.repository.storage.ConversationStore;
+import org.sempiria.cepheuna.utils.StringUtil;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Component;
 
@@ -116,6 +117,6 @@ public class RetrievalService {
 
     @Contract(pure = true)
     private @NonNull String safe(@Nullable String text) {
-        return text == null ? "" : text.toLowerCase(Locale.ROOT);
+        return StringUtil.nullToEmpty(text).toLowerCase(Locale.ROOT);
     }
 }

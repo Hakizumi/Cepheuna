@@ -3,6 +3,7 @@ package org.sempiria.cepheuna.repository.storage;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.sempiria.cepheuna.config.ModelProperties;
@@ -27,6 +28,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>The name is kept for compatibility with the existing wiring, but this implementation is now a
  * single-machine production store. Memory remains as a hot cache, while layered-memory files are
  * persisted under the configured session directory.
+ *
+ * @see ConversationStore
+ * @author Sempiria
+ * @since 1.0.0
+ * @version 1.1.0
  */
 @Component
 public class RAMConversationStoreImpl implements ConversationStore {
@@ -279,7 +285,7 @@ public class RAMConversationStoreImpl implements ConversationStore {
         writeJson(sessionDir(cid).resolve(RECENT_FILE), stored);
     }
 
-    private @NonNull StoredMessage fromMessage(Message message) {
+    private @NonNull StoredMessage fromMessage(@NotNull Message message) {
         StoredMessage stored = new StoredMessage();
         stored.text = message.getText();
 

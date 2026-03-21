@@ -1,6 +1,5 @@
 type WsIncomingMessage =
   | { type: 'assistant_text'; text?: string; cid?: string }
-  | { type: 'assistant_audio'; audioBase64?: string; audioFormat?: string; utteranceId?: string; seq?: number; chunkIndex?: number; cid?: string }
   | { type: 'assistant_audio_complete'; utteranceId?: string; seq?: number; cid?: string }
   | { type: 'assistant_sentence'; text?: string; utteranceId?: string; seq?: number; cid?: string }
   | { type: 'assistant_start'; cid?: string }
@@ -20,10 +19,18 @@ type WsOutgoingMessage =
   | { type: 'stop'; cid: string }
   | { type: 'ping'; cid: string };
 
+type AudioFormatDescriptor = {
+  codec: string;
+  sampleRate: number;
+  channels: number;
+  bitsPerSample: number;
+  container?: string;
+};
+
 type BufferedAudioChunk = {
   chunkIndex: number;
-  base64: string;
-  format: string;
+  bytes: Uint8Array;
+  format: AudioFormatDescriptor;
 };
 
 type SentencePlaybackState = {
@@ -32,22 +39,41 @@ type SentencePlaybackState = {
   complete: boolean;
 };
 
+type AssistantAudioBinaryHeader = {
+  type: 'assistant_audio';
+  cid?: string;
+  utteranceId?: string;
+  seq?: number;
+  chunkIndex?: number;
+  codec?: string;
+  sampleRate?: number;
+  channels?: number;
+  bitsPerSample?: number;
+  container?: string;
+};
+
+type MicFrameHandler = (input: Float32Array) => void;
+
+type MicCaptureHandle = {
+  stop: () => void;
+};
+
 declare global {
   interface Window {
     webkitAudioContext?: typeof AudioContext;
   }
 }
 
-const PLAYBACK_SAMPLE_RATE = 24000;
 const PLAYBACK_LEAD_SECONDS = 0.12;
 const PCM_FADE_SAMPLES = 128;
 const PCM_MIN_BUFFER_BYTES = 16384;
+const MIC_WORKLET_NAME = 'mic-capture-processor';
+const SILENT_MONITOR_GAIN = 0;
 
 let ws: WebSocket | null = null;
 let audioCtx: AudioContext | null = null;
 let mediaStream: MediaStream | null = null;
-let sourceNode: MediaStreamAudioSourceNode | null = null;
-let processorNode: ScriptProcessorNode | null = null;
+let micCaptureHandle: MicCaptureHandle | null = null;
 let playbackCtx: AudioContext | null = null;
 let playbackCursorTime = 0;
 let playbackGeneration = 0;
@@ -60,6 +86,7 @@ let nextSentenceSeqToPlay = 0;
 let sentencePlaybackStates: Map<number, SentencePlaybackState> = new Map();
 let drainPlaybackPromise: Promise<void> = Promise.resolve();
 let pendingPcmBytes: Uint8Array = new Uint8Array(0);
+let pendingPcmFormat: AudioFormatDescriptor | null = null;
 
 const logEl: HTMLPreElement = mustGet<HTMLPreElement>('log');
 const cidEl: HTMLInputElement = mustGet<HTMLInputElement>('cid');
@@ -86,8 +113,7 @@ function log(msg: string): void {
 function rewriteLastLines(prefix: string, next: string): void {
   const lines = (logEl.textContent ?? '').split('\n');
   for (let i = lines.length - 1; i >= 0; i -= 1) {
-    // @ts-ignore
-    if (lines[i].startsWith(prefix)) {
+    if (lines[i]?.startsWith(prefix)) {
       lines[i] = `${prefix}${next}`;
       logEl.textContent = lines.join('\n');
       logEl.scrollTop = logEl.scrollHeight;
@@ -166,7 +192,12 @@ async function connect(): Promise<void> {
       log('[error] websocket');
     };
 
-    ws.onmessage = async (event: MessageEvent<string>) => {
+    ws.onmessage = async (event: MessageEvent<string | ArrayBuffer>) => {
+      if (typeof event.data !== 'string') {
+        handleBinaryAssistantAudio(event.data);
+        return;
+      }
+
       const msg = parseMessage(event.data);
       if (!msg) return;
 
@@ -190,23 +221,8 @@ async function connect(): Promise<void> {
           log(`[tts_queue] #${msg.seq ?? 0} ${msg.text ?? ''}`);
           break;
 
-        case 'assistant_audio':
-          if (msg.audioBase64) {
-            queueSentenceAudio(
-              String(msg.utteranceId ?? activeUtteranceId ?? ''),
-              Number(msg.seq ?? 0),
-              Number(msg.chunkIndex ?? 0),
-              String(msg.audioBase64),
-              String(msg.audioFormat ?? 'pcm'),
-            );
-          }
-          break;
-
         case 'assistant_audio_complete':
-          markSentenceAudioComplete(
-            String(msg.utteranceId ?? activeUtteranceId ?? ''),
-            Number(msg.seq ?? 0),
-          );
+          markSentenceAudioComplete(String(msg.utteranceId ?? activeUtteranceId ?? ''), Number(msg.seq ?? 0));
           break;
 
         case 'stt_partial':
@@ -285,10 +301,16 @@ function sendText(): void {
   sendJson({ type: 'chat', cid: currentCid(), text });
 }
 
-async function ensurePlaybackContext(): Promise<AudioContext> {
+async function ensurePlaybackContext(sampleRate?: number): Promise<AudioContext> {
   if (!playbackCtx || playbackCtx.state === 'closed') {
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-    playbackCtx = new AudioContextCtor({ sampleRate: PLAYBACK_SAMPLE_RATE });
+    playbackCtx = sampleRate ? new AudioContextCtor({ sampleRate }) : new AudioContextCtor();
+    playbackCursorTime = 0;
+  }
+  if (sampleRate && Math.abs(playbackCtx.sampleRate - sampleRate) > 1) {
+    await playbackCtx.close();
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    playbackCtx = new AudioContextCtor({ sampleRate });
     playbackCursorTime = 0;
   }
   if (playbackCtx.state === 'suspended') {
@@ -305,6 +327,7 @@ function resetPlaybackSchedule(): void {
   sentencePlaybackStates = new Map();
   drainPlaybackPromise = Promise.resolve();
   pendingPcmBytes = new Uint8Array(0);
+  pendingPcmFormat = null;
 
   if (playbackCtx && playbackCtx.state !== 'closed') {
     void playbackCtx.close();
@@ -332,30 +355,25 @@ async function startMic(): Promise<void> {
       },
     });
 
-    audioCtx = new AudioContext();
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContextCtor();
     if (audioCtx.state === 'suspended') {
       await audioCtx.resume();
     }
 
-    sourceNode = audioCtx.createMediaStreamSource(mediaStream);
-    processorNode = audioCtx.createScriptProcessor(4096, 1, 1);
-
-    sourceNode.connect(processorNode);
-    processorNode.connect(audioCtx.destination);
-
-    processorNode.onaudioprocess = (event: AudioProcessingEvent) => {
+    const sourceNode = audioCtx.createMediaStreamSource(mediaStream);
+    micCaptureHandle = await createMicCapture(audioCtx, sourceNode, (input) => {
       const socket = ws;
       if (!socket || socket.readyState !== WebSocket.OPEN || !audioCtx) {
         return;
       }
 
-      const input = event.inputBuffer.getChannelData(0);
       const downsampled = downsample(input, audioCtx.sampleRate, 16000);
       const pcm16 = floatTo16BitPCM(downsampled);
       if (pcm16.byteLength > 0) {
-        socket.send(pcm16.buffer);
+        socket.send(pcm16.buffer.slice(0));
       }
-    };
+    });
 
     isMicRunning = true;
     updateUiState();
@@ -367,13 +385,9 @@ async function startMic(): Promise<void> {
 }
 
 function stopMic(): void {
-  if (processorNode) {
-    processorNode.onaudioprocess = null;
-    processorNode.disconnect();
-  }
-  if (sourceNode) {
-    sourceNode.disconnect();
-  }
+  micCaptureHandle?.stop();
+  micCaptureHandle = null;
+
   if (mediaStream) {
     mediaStream.getTracks().forEach((track) => track.stop());
   }
@@ -381,8 +395,6 @@ function stopMic(): void {
     void audioCtx.close();
   }
 
-  processorNode = null;
-  sourceNode = null;
   mediaStream = null;
   audioCtx = null;
   isMicRunning = false;
@@ -393,6 +405,106 @@ function stopMic(): void {
 function stopAssistant(): void {
   resetPlaybackSchedule();
   sendJson({ type: 'stop', cid: currentCid() });
+}
+
+async function createMicCapture(
+  ctx: AudioContext,
+  sourceNode: MediaStreamAudioSourceNode,
+  onFrame: MicFrameHandler,
+): Promise<MicCaptureHandle> {
+  if (typeof AudioWorkletNode !== 'undefined' && ctx.audioWorklet) {
+    try {
+      return await createAudioWorkletCapture(ctx, sourceNode, onFrame);
+    } catch (err) {
+      log(`[mic] audio worklet unavailable, falling back: ${(err as Error).message}`);
+    }
+  }
+  return createScriptProcessorCapture(ctx, sourceNode, onFrame);
+}
+
+async function createAudioWorkletCapture(
+  ctx: AudioContext,
+  sourceNode: MediaStreamAudioSourceNode,
+  onFrame: MicFrameHandler,
+): Promise<MicCaptureHandle> {
+  const workletSource = `
+class MicCaptureProcessor extends AudioWorkletProcessor {
+  process(inputs) {
+    const input = inputs[0];
+    if (input && input[0] && input[0].length > 0) {
+      this.port.postMessage(input[0]);
+    }
+    return true;
+  }
+}
+registerProcessor('${MIC_WORKLET_NAME}', MicCaptureProcessor);
+`;
+
+  const blob = new Blob([workletSource], { type: 'application/javascript' });
+  const moduleUrl = URL.createObjectURL(blob);
+  try {
+    await ctx.audioWorklet.addModule(moduleUrl);
+  } finally {
+    URL.revokeObjectURL(moduleUrl);
+  }
+
+  const workletNode = new AudioWorkletNode(ctx, MIC_WORKLET_NAME, {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    channelCount: 1,
+  });
+  const silentGain = ctx.createGain();
+  silentGain.gain.value = SILENT_MONITOR_GAIN;
+
+  workletNode.port.onmessage = (event: MessageEvent<Float32Array>) => {
+    const input = event.data;
+    if (input && input.length > 0) {
+      onFrame(new Float32Array(input));
+    }
+  };
+
+  sourceNode.connect(workletNode);
+  workletNode.connect(silentGain);
+  silentGain.connect(ctx.destination);
+
+  return {
+    stop: () => {
+      workletNode.port.onmessage = null;
+      sourceNode.disconnect(workletNode);
+      workletNode.disconnect();
+      silentGain.disconnect();
+    },
+  };
+}
+
+function createScriptProcessorCapture(
+  ctx: AudioContext,
+  sourceNode: MediaStreamAudioSourceNode,
+  onFrame: MicFrameHandler,
+): MicCaptureHandle {
+  const processorNode = ctx.createScriptProcessor(4096, 1, 1);
+  const silentGain = ctx.createGain();
+  silentGain.gain.value = SILENT_MONITOR_GAIN;
+
+  processorNode.onaudioprocess = (event: AudioProcessingEvent) => {
+    const input = event.inputBuffer.getChannelData(0);
+    if (input.length > 0) {
+      onFrame(new Float32Array(input));
+    }
+  };
+
+  sourceNode.connect(processorNode);
+  processorNode.connect(silentGain);
+  silentGain.connect(ctx.destination);
+
+  return {
+    stop: () => {
+      processorNode.onaudioprocess = null;
+      sourceNode.disconnect(processorNode);
+      processorNode.disconnect();
+      silentGain.disconnect();
+    },
+  };
 }
 
 function downsample(input: Float32Array, inputRate: number, outputRate: number): Float32Array {
@@ -432,12 +544,52 @@ function floatTo16BitPCM(input: Float32Array): Int16Array {
   return out;
 }
 
+function handleBinaryAssistantAudio(data: ArrayBuffer): void {
+  const packet = parseBinaryAudioPacket(data);
+  if (!packet) {
+    log('[audio-error] invalid audio packet');
+    return;
+  }
+
+  const { header, bytes } = packet;
+  queueSentenceAudio(
+    String(header.utteranceId ?? activeUtteranceId ?? ''),
+    Number(header.seq ?? 0),
+    Number(header.chunkIndex ?? 0),
+    bytes,
+    normalizeAudioDescriptor(header),
+  );
+}
+
+function parseBinaryAudioPacket(data: ArrayBuffer): { header: AssistantAudioBinaryHeader; bytes: Uint8Array } | null {
+  const bytes = new Uint8Array(data);
+  const separatorIndex = bytes.indexOf(0x0a);
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const headerText = new TextDecoder().decode(bytes.slice(0, separatorIndex));
+  const header = JSON.parse(headerText) as AssistantAudioBinaryHeader;
+  const payload = bytes.slice(separatorIndex + 1);
+  return { header, bytes: payload };
+}
+
+function normalizeAudioDescriptor(header: AssistantAudioBinaryHeader): AudioFormatDescriptor {
+  return {
+    codec: String(header.codec ?? 'pcm_s16le').trim().toLowerCase(),
+    sampleRate: Math.max(1, Number(header.sampleRate ?? 24000)),
+    channels: Math.max(1, Number(header.channels ?? 1)),
+    bitsPerSample: Math.max(0, Number(header.bitsPerSample ?? 16)),
+    container: String(header.container ?? '').trim().toLowerCase(),
+  };
+}
+
 function queueSentenceAudio(
   utteranceId: string,
   seq: number,
   chunkIndex: number,
-  base64: string,
-  format: string,
+  bytes: Uint8Array,
+  format: AudioFormatDescriptor,
 ): void {
   if (utteranceId && activeUtteranceId && utteranceId !== activeUtteranceId) {
     return;
@@ -450,7 +602,7 @@ function queueSentenceAudio(
     sentencePlaybackStates.get(seq) ??
     { chunks: new Map<number, BufferedAudioChunk>(), nextChunkIndex: 0, complete: false };
 
-  state.chunks.set(chunkIndex, { chunkIndex, base64, format });
+  state.chunks.set(chunkIndex, { chunkIndex, bytes, format });
   sentencePlaybackStates.set(seq, state);
   drainSentencePlayback();
 }
@@ -497,7 +649,7 @@ function drainSentencePlayback(): void {
           state.chunks.delete(state.nextChunkIndex);
           state.nextChunkIndex += 1;
           advanced = true;
-          await queueAudio(chunk.base64, chunk.format);
+          await queueAudio(chunk.bytes, chunk.format);
         }
 
         if (state.complete && state.chunks.size === 0) {
@@ -519,48 +671,59 @@ function drainSentencePlayback(): void {
     });
 }
 
-async function queueAudio(base64: string, format: string): Promise<void> {
-  const bytes = base64ToBytes(base64);
+async function queueAudio(bytes: Uint8Array, format: AudioFormatDescriptor): Promise<void> {
   if (bytes.byteLength === 0) {
     return;
   }
 
   const normalizedFormat = normalizeAudioFormat(format, bytes);
-
-  if (normalizedFormat === 'pcm') {
+  if (isRawPcmFormat(normalizedFormat)) {
+    const needsFlush = pendingPcmFormat !== null && !sameAudioFormat(pendingPcmFormat, normalizedFormat);
+    if (needsFlush) {
+      await flushPendingPcm();
+    }
+    pendingPcmFormat = normalizedFormat;
     pendingPcmBytes = concatBytes(pendingPcmBytes, bytes);
     if (pendingPcmBytes.byteLength >= PCM_MIN_BUFFER_BYTES) {
       const readyBytes = pendingPcmBytes;
+      const readyFormat = pendingPcmFormat;
       pendingPcmBytes = new Uint8Array(0);
-      await schedulePcmBytes(readyBytes);
+      pendingPcmFormat = null;
+      if (readyFormat) {
+        await schedulePcmBytes(readyBytes, readyFormat);
+      }
     }
     return;
   }
 
   await flushPendingPcm();
-  await playDecodedChunk(bytes);
+  await playDecodedChunk(bytes, normalizedFormat);
 }
 
-function normalizeAudioFormat(format: string, bytes: Uint8Array): string {
-  const lowered = (format ?? '').trim().toLowerCase();
-
+function normalizeAudioFormat(format: AudioFormatDescriptor, bytes: Uint8Array): AudioFormatDescriptor {
   if (looksLikeWav(bytes)) {
-    return 'wav';
-  }
-  if (lowered === 'pcm' || lowered === 'wav' || lowered === 'mp3' || lowered === 'opus' || lowered === 'aac' || lowered === 'flac') {
-    return lowered;
+    return { ...format, codec: 'wav', container: 'wav' };
   }
 
-  return 'pcm';
+  const lowered = (format.codec ?? '').trim().toLowerCase();
+  if (lowered === 'pcm' || lowered === 'pcm_s16le') {
+    return { ...format, codec: 'pcm_s16le', bitsPerSample: format.bitsPerSample || 16, channels: format.channels || 1 };
+  }
+  return { ...format, codec: lowered || 'pcm_s16le' };
 }
 
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i) & 0xff;
-  }
-  return bytes;
+function isRawPcmFormat(format: AudioFormatDescriptor): boolean {
+  return format.codec === 'pcm_s16le' || format.codec === 'pcm';
+}
+
+function sameAudioFormat(a: AudioFormatDescriptor, b: AudioFormatDescriptor): boolean {
+  return (
+    a.codec === b.codec &&
+    a.sampleRate === b.sampleRate &&
+    a.channels === b.channels &&
+    a.bitsPerSample === b.bitsPerSample &&
+    (a.container ?? '') === (b.container ?? '')
+  );
 }
 
 function looksLikeWav(bytes: Uint8Array): boolean {
@@ -588,19 +751,29 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
 }
 
 async function flushPendingPcm(): Promise<void> {
-  if (pendingPcmBytes.byteLength < 2) {
+  if (pendingPcmBytes.byteLength < 2 || !pendingPcmFormat) {
     pendingPcmBytes = new Uint8Array(0);
+    pendingPcmFormat = null;
     return;
   }
 
   const readyBytes = pendingPcmBytes;
+  const readyFormat = pendingPcmFormat;
   pendingPcmBytes = new Uint8Array(0);
-  await schedulePcmBytes(readyBytes);
+  pendingPcmFormat = null;
+  await schedulePcmBytes(readyBytes, readyFormat);
 }
 
-async function schedulePcmBytes(bytes: Uint8Array): Promise<void> {
+async function schedulePcmBytes(bytes: Uint8Array, format: AudioFormatDescriptor): Promise<void> {
   const generation = playbackGeneration;
-  const ctx = await ensurePlaybackContext();
+  if (format.channels !== 1) {
+    throw new Error(`Unsupported PCM channel count: ${format.channels}`);
+  }
+  if (format.bitsPerSample !== 16) {
+    throw new Error(`Unsupported PCM bit depth: ${format.bitsPerSample}`);
+  }
+
+  const ctx = await ensurePlaybackContext(format.sampleRate);
   if (generation !== playbackGeneration) {
     return;
   }
@@ -612,7 +785,7 @@ async function schedulePcmBytes(bytes: Uint8Array): Promise<void> {
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, evenLength);
   const frameCount = evenLength / 2;
-  const audioBuffer = ctx.createBuffer(1, frameCount, PLAYBACK_SAMPLE_RATE);
+  const audioBuffer = ctx.createBuffer(1, frameCount, format.sampleRate);
   const channel = audioBuffer.getChannelData(0);
 
   for (let i = 0; i < frameCount; i += 1) {
@@ -648,9 +821,9 @@ function applyFade(channel: Float32Array): void {
   }
 }
 
-async function playDecodedChunk(bytes: Uint8Array): Promise<void> {
+async function playDecodedChunk(bytes: Uint8Array, format: AudioFormatDescriptor): Promise<void> {
   const generation = playbackGeneration;
-  const ctx = await ensurePlaybackContext();
+  const ctx = await ensurePlaybackContext(format.sampleRate || undefined);
   if (generation !== playbackGeneration) {
     return;
   }

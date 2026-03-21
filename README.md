@@ -115,7 +115,10 @@ spring:
 * Github-Releases: https://github.com/Hakizumi/Cepheuna/releases
 * Developer: `Hakizumi`
 * Contributors: None :(
-* Current Version: 1.3.0
+* Current Version: 1.3.1
 
 ---
 
+#### LICENSE: [LICENSE](LICENSE)
+#### CONTRIBUTING: [CONTRIBUTING](CONTRIBUTING.md)
+#### SECURITY: [SECURITY](.github/SECURITY.md)
