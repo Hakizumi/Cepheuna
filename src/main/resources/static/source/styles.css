@@ -1,0 +1,367 @@
+:root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --panel-2: #f8f9fb;
+    --border: #e5e7eb;
+    --text: #111827;
+    --muted: #6b7280;
+    --primary: #25d4eb;
+    --primary-2: #4f46e5;
+    --user-bubble: #e5e7eb;
+    --assistant-bubble: #f3f4f6;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    --radius-xl: 24px;
+    --radius-lg: 18px;
+    --radius-md: 14px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+    font-family:
+            Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system,
+            BlinkMacSystemFont, sans-serif;
+    background: #ffffff;
+    color: var(--text);
+}
+
+body {
+    min-height: 100vh;
+}
+
+.app {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: 100vh;
+    gap: 16px;
+    padding: 16px;
+    background: #ffffff;
+}
+
+.sidebar,
+.chat-layout {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+}
+
+.sidebar {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.brand-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 18px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    color: white;
+}
+
+.brand h1 {
+    font-size: 20px;
+    margin: 0;
+}
+
+.brand p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.sidebar-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+}
+
+.sidebar-card label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.sidebar-card input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: var(--text);
+    border-radius: 12px;
+    padding: 12px 14px;
+    outline: none;
+}
+
+.sidebar-card input:focus {
+    border-color: rgba(37, 99, 235, 0.45);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.tips h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 15px;
+}
+
+.tips p {
+    margin: 8px 0;
+    color: var(--muted);
+    line-height: 1.6;
+    font-size: 13px;
+}
+
+.chat-layout {
+    display: grid;
+    grid-template-rows: 84px 1fr 92px;
+    min-height: 0;
+}
+
+.chat-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-header h2 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.chat-header p {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.status-badge {
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+}
+
+.status-badge.idle {
+    color: #374151;
+    background: #f3f4f6;
+}
+
+.status-badge.streaming {
+    color: #92400e;
+    background: #fef3c7;
+    border-color: #fcd34d;
+}
+
+.status-badge.done {
+    color: #166534;
+    background: #dcfce7;
+    border-color: #86efac;
+}
+
+.status-badge.error {
+    color: #991b1b;
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.message-list {
+    padding: 24px;
+    overflow-y: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    background: #ffffff;
+}
+
+.empty-state {
+    margin: auto;
+    text-align: center;
+    color: var(--muted);
+}
+
+.empty-icon {
+    font-size: 42px;
+    margin-bottom: 12px;
+}
+
+.empty-state h3 {
+    margin: 0 0 10px;
+    color: var(--text);
+}
+
+.message-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.message-row.user {
+    flex-direction: row-reverse;
+}
+
+.avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    color: white;
+}
+
+.avatar.user {
+    background: #6b7280;
+}
+
+.avatar.assistant {
+    background: #9ca3af;
+}
+
+.message-bubble {
+    max-width: min(78%, 920px);
+    padding: 14px 16px;
+    border-radius: 18px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.message-row.user .message-bubble {
+    background: var(--user-bubble);
+    border-bottom-right-radius: 6px;
+}
+
+.message-row.assistant .message-bubble {
+    background: var(--assistant-bubble);
+    border-bottom-left-radius: 6px;
+}
+
+.message-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+}
+
+.composer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    background: #ffffff;
+    position: relative;
+}
+
+.composer textarea {
+    width: 100%;
+    resize: none;
+    min-height: 64px;
+    max-height: 200px;
+    border-radius: 999px;
+    border: 1px solid #111111;
+    background: #ffffff;
+    color: #111111;
+    padding: 18px 68px 18px 20px;
+    outline: none;
+    font-size: 15px;
+    line-height: 1.5;
+    box-shadow: none;
+}
+
+.composer textarea:focus {
+    border-color: #111111;
+    box-shadow: none;
+}
+
+.composer button {
+    position: absolute;
+    right: 28px;
+    bottom: 24px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 999px;
+    background: #111111;
+    color: #ffffff;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.composer button::before {
+    content: "↑";
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.composer button:hover {
+    transform: scale(1.04);
+}
+
+.composer button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.typing-cursor::after {
+    content: "▋";
+    display: inline-block;
+    margin-left: 2px;
+    animation: blink 0.9s infinite;
+    color: #6b7280;
+}
+
+@keyframes blink {
+    0%,
+    49% {
+        opacity: 1;
+    }
+    50%,
+    100% {
+        opacity: 0.15;
+    }
+}
+
+@media (max-width: 960px) {
+    .app {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+    .message-bubble {
+        max-width: 88%;
+    }
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Cepheuna Chat</title>
+	<link rel="stylesheet" href="./source/styles.css" />
+</head>
+<body>
+	<div class="app">
+		<aside class="sidebar">
+			<div class="brand">
+				<div class="brand-logo">AI</div>
+				<div>
+					<h1>AI Assistant</h1>
+					<p>Streaming Chat Demo</p>
+				</div>
+			</div>
+			
+			<div class="sidebar-card">
+				<label for="cidInput">Conversation ID</label>
+				<input id="cidInput" type="text" value="dev" />
+			</div>
+		</aside>
+		
+		<main class="chat-layout">
+			<header class="chat-header">
+				<div id="statusBadge" class="status-badge idle">Idle</div>
+			</header>
+			
+			<section id="messageList" class="message-list">
+				<div class="empty-state" id="emptyState">
+					<div class="empty-icon">💬</div>
+					<h3>Start a new conversation</h3>
+				</div>
+			</section>
+			
+			<footer class="composer">
+				<label for="messageInput"></label>
+				<textarea
+					  id="messageInput"
+					  placeholder="Input..."
+					  rows="1">
+				</textarea>
+				
+				<button id="sendButton"></button>
+			</footer>
+		</main>
+	</div>
+	
+	<script type="module" src="./dist/app.js"></script>
+</body>
+</html>
