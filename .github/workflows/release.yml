@@ -29,10 +29,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
 
       - name: Install npm dependencies
-        run: npm ci
+        run: npm install
 
       - name: Create source archives
         run: |
@@ -45,11 +44,25 @@ jobs:
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
+      - name: Prepare release asset names
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          cp target/cepheuna.jar "target/cepheuna-${TAG_NAME}.jar"
+          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
+
+      - name: Debug build outputs
+        run: |
+          ls -lah target
+          echo "Release tag: $TAG_NAME"
+
       - name: Create GitHub Release and upload assets
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ env.TAG_NAME }}
+          tag_name: ${{ env.TAG_NAME }}
           files: |
-            target/*.jar
+            target/cepheuna-${{ env.TAG_NAME }}.jar
             source.zip
             source.tar.gz
         env:
