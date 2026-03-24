@@ -17,7 +17,7 @@
 * Sherpa Onnx Runtime Lib ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
 * Sherpa Onnx Models ( see [Sherpa-releases](https://github.com/k2-fsa/sherpa-onnx/releases/) )
 
-#### To download and deploy sherpa-onnx models and runtime lib,see [sherpa-onnx-deployment-guild](sherpa-onnx-deployment-guild.md)
+#### To download and deploy sherpa-onnx models and runtime lib,see [sherpa-onnx-deployment-guild](sherpa-onnx-deployment-guide.md)
 
 ### First -- Configure your openai-api-url and api-key
 
