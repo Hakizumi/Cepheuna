@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "rootDir": "src/main/resources/static",
         "outDir": "src/main/resources/static/dist",
         "target": "ES2022",
         "module": "ESNext",
@@ -14,5 +15,5 @@
         "resolveJsonModule": true,
         "allowSyntheticDefaultImports": true
     },
-    "include": ["src"]
+    "include": ["src/main/resources/static/source/**/*.ts"]
 }
