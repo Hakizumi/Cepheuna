@@ -4,6 +4,7 @@ import org.hakizumi.cepheuna.tools.AgentTool;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,6 +17,7 @@ import java.util.List;
  * @author Hakizumi
  */
 @Configuration
+@ConfigurationPropertiesScan("org.hakizumi.cepheuna")
 public class ApplicationConfig {
     /**
      * Chat client of OpenAI chat model.

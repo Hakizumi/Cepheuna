@@ -5,7 +5,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import java.util.List;
 
 /**
- * Base tool interface.Only implements this interface,tool can be auto-scans by the tool registry.
+ * Base agent-callable tools interface.Only implements this interface,tool can be auto-scans by the tool registry.
  * It is just a markup interface and has no functional usage.
  *
  * @since 1.1.0

@@ -4,9 +4,10 @@
 
 Currently supported versions:
 
-| Version | Supported | Reason / Description |
-|---------|-----------|----------------------|
-| 1.0.0   | Yes       | First stable version |
+| Version | Supported | Reason / Description     |
+|---------|-----------|--------------------------|
+| 1.1.0   | Yes       | Add agent-callable tools |
+| 1.0.0   | Yes       | First stable version     |
 
 
 ## Reporting a Vulnerability
