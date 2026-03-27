@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.hakizumi.cepheuna.controller.ConversationController;
 import org.hakizumi.cepheuna.dto.ConversationRequest;
 import org.hakizumi.cepheuna.dto.ConversationResponse;
+import org.hakizumi.cepheuna.memory.MemoryProvideOrchestrator;
 import org.hakizumi.cepheuna.utils.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
@@ -11,6 +12,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * An implementation class of {@link BaseLLMService}.
@@ -25,9 +28,11 @@ import reactor.core.publisher.Flux;
 @Slf4j
 public class OpenaiLLMService implements BaseLLMService {
     private final ChatClient chatClient;
+    private final MemoryProvideOrchestrator memoryProvideOrchestrator;
 
-    public OpenaiLLMService(ChatClient chatClient) {
+    public OpenaiLLMService(ChatClient chatClient, MemoryProvideOrchestrator memoryProvideOrchestrator) {
         this.chatClient = chatClient;
+        this.memoryProvideOrchestrator = memoryProvideOrchestrator;
     }
 
     /**
@@ -52,9 +57,11 @@ public class OpenaiLLMService implements BaseLLMService {
         log.debug("Conversation-{} message: {} ( non-streaming )",request.getCid(),request.getMessage());
 
         ChatClient.ChatClientRequestSpec spec = chatClient.prompt()
-                .user(request.getMessage());
+                .messages(memoryProvideOrchestrator.onUserMessage(request.getCid(),request.getMessage()));
 
         var response = spec.call();
+        memoryProvideOrchestrator.onAssistantReply(request.getCid(),response.content());
+
         return ConversationResponse.success(response.content());
     }
 
@@ -147,15 +154,21 @@ public class OpenaiLLMService implements BaseLLMService {
             @NonNull ConversationRequest request
     ) {
         ChatClient.ChatClientRequestSpec spec = chatClient.prompt()
-                .user(request.getMessage());
+                .messages(memoryProvideOrchestrator.onUserMessage(request.getCid(),request.getMessage()));
+
+        AtomicReference<String> ref = new AtomicReference<>("");
 
         return spec.stream()
                 .content()
                 .filter((d) -> !d.isEmpty())
-                .map((tok) -> ServerSentEvent.builder(
-                        ConversationResponse.success(tok))
-                        .event("delta")
-                        .build()
+                .map((tok) -> {
+                    ref.set(ref.get() + tok);
+
+                    return ServerSentEvent.builder(
+                            ConversationResponse.success(tok))
+                            .event("delta")
+                            .build();
+                }
                 )
                 .onErrorResume((ex) -> {
                     log.warn("LLM stream failed: {}", ex.getMessage(), ex);
@@ -165,6 +178,7 @@ public class OpenaiLLMService implements BaseLLMService {
                             )
                             .event("error")
                             .build());
-                });
+                })
+                .doOnComplete(() -> memoryProvideOrchestrator.onAssistantReply(request.getCid(),ref.get()));
     }
 }
