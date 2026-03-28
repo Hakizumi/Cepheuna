@@ -4,6 +4,7 @@ import org.hakizumi.cepheuna.tools.AgentTool;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,7 +30,8 @@ public class ApplicationConfig {
     @Bean
     public @NonNull ChatClient decisionClient(
             ChatClient.@NonNull Builder builder,
-            @Nullable List<AgentTool> tools
+            @Nullable List<AgentTool> tools,
+            ModelProperties modelProperties
     ) {
         if (tools != null && !tools.isEmpty()) {
             // Register tools
@@ -37,6 +39,11 @@ public class ApplicationConfig {
         }
 
         return builder
+                .defaultOptions(
+                        ChatOptions.builder()
+                                .model(modelProperties.getDecisionModel())
+                                .build()
+                )
                 .build();
     }
 }
