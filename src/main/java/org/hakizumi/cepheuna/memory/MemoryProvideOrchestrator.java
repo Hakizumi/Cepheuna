@@ -1,10 +1,13 @@
 package org.hakizumi.cepheuna.memory;
 
+import org.hakizumi.cepheuna.dto.event.AssistantWholeReplyEvent;
+import org.hakizumi.cepheuna.dto.event.UserInputEvent;
 import org.hakizumi.cepheuna.repository.storage.ConversationStore;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.stereotype.Service;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
@@ -25,7 +28,7 @@ import java.util.List;
  * @since 1.3.0
  * @author Hakizumi
  */
-@Service
+@Component
 public class MemoryProvideOrchestrator {
     private final ConversationStore conversationStore;
 
@@ -33,13 +36,17 @@ public class MemoryProvideOrchestrator {
         this.conversationStore = conversationStore;
     }
 
-    public List<Message> onUserMessage(String cid,String userInput) {
-        List<Message> messages = conversationStore.getConversationMemoryOrStorage(cid).getMessages();
-        messages.add(new UserMessage(userInput));
+    @EventListener
+    public List<Message> onUserMessage(UserInputEvent event) {
+        List<Message> messages = conversationStore.getConversationMemoryOrStorage(event.getRequest().getCid()).getMessages();
+        messages.add(new UserMessage(event.getRequest().getMessage()));
         return messages;
     }
 
-    public void onAssistantReply(String cid,String assistantReply) {
-        conversationStore.getConversationMemoryOrStorage(cid).pushMessage(new AssistantMessage(assistantReply));
+    @EventListener
+    public void onAssistantWholeReply(AssistantWholeReplyEvent event) {
+        conversationStore.getConversationMemoryOrStorage(
+                event.getRequest().getCid()
+        ).pushMessage(new AssistantMessage(event.getResponse().getMessage()));
     }
 }

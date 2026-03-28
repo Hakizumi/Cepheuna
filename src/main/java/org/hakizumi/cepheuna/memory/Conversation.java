@@ -34,13 +34,15 @@ public class Conversation {
      * Push a message to the conversation memory's back.
      *
      * @param message The message to push back
+     * @return Added memory messages list
      *
      * @throws NullPointerException If {@code message} is null.
      *
      * @since 1.3.0
      */
-    public void pushMessage(@NonNull Message message) {
+    public List<Message> pushMessage(@NonNull Message message) {
         messages.add(message);
+        return messages;
     }
 
     /**

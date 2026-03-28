@@ -21,7 +21,12 @@ public class ConversationResponse {
 
     private Integer errorCode = null;
 
-    /** Success message */
+    /**
+     * Success message,
+     * maybe {@code Assistants' reply delta} when it is streaming request,
+     * or {@code Assistants' whole reply} when it is non-streaming request,
+     * even {@code start} or {@code done} when it is just a streaming flux flag.
+     */
     private String message = null;
 
     /**
@@ -40,6 +45,7 @@ public class ConversationResponse {
      *                maybe {@code Assistants' reply delta} when it is streaming request,
      *                or {@code Assistants' whole reply} when it is non-streaming request,
      *                even {@code start} or {@code done} when it is just a streaming flux flag.
+     *                see {@link ConversationResponse#message}.
      * @return This
      *
      * @since 1.0.0

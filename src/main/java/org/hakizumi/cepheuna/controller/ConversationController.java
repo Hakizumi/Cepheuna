@@ -3,6 +3,7 @@ package org.hakizumi.cepheuna.controller;
 import org.hakizumi.cepheuna.dto.ConversationRequest;
 import org.hakizumi.cepheuna.dto.ConversationResponse;
 import org.hakizumi.cepheuna.service.BaseLLMService;
+import org.hakizumi.cepheuna.service.LLMService;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,11 +29,10 @@ import reactor.core.publisher.Flux;
 @RestController
 @RequestMapping("/backend/conversation")
 public class ConversationController {
+    private final LLMService llmService;
 
-    private final BaseLLMService baseLLMService;
-
-    public ConversationController(BaseLLMService baseLLMService) {
-        this.baseLLMService = baseLLMService;
+    public ConversationController(LLMService llmService) {
+        this.llmService = llmService;
     }
 
     /**
@@ -69,7 +69,7 @@ public class ConversationController {
             return ConversationResponse.error("Request message is null",400);
         }
 
-        return baseLLMService.nonStreaming(request);
+        return llmService.nonStreaming(request);
     }
 
     /**
@@ -106,6 +106,6 @@ public class ConversationController {
             return Flux.error(new IllegalArgumentException("Request message is null"));
         }
 
-        return baseLLMService.streaming(request);
+        return llmService.streaming(request);
     }
 }
