@@ -10,6 +10,11 @@ spring:
       api-key: sk-xxxx   # You configure
       base-url: https://api.openai.com
 
+cepheuna:
+  models:
+    # Models config properties,see org/hakizumi/cepheuna/config/ModelProperties
+    decision-model: gpt-4  # main reply model
+
 logging:
   level:
     root: info
