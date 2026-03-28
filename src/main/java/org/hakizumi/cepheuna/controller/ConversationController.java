@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
+import java.util.UUID;
+
 /**
  * AI conversation controller.
  * Exchange message from conversation frontend.
@@ -70,6 +72,7 @@ public class ConversationController {
             return ConversationResponse.error("Request message is null",400);
         }
 
+        normalizeCid(request);
         return llmService.nonStreaming(request);
     }
 
@@ -137,6 +140,20 @@ public class ConversationController {
             return Flux.error(new IllegalArgumentException("Request message is null"));
         }
 
+        normalizeCid(request);
         return llmService.streaming(request);
+    }
+
+    /**
+     * Normalize cid if null.
+     * If the cid is not null,returns the original cid.
+     * Else,set the cid a temporary random cid.
+     *
+     * @param request Target {@link ConversationRequest}
+     */
+    private void normalizeCid(@NotNull ConversationRequest request) {
+        if (request.getCid() == null || request.getCid().isBlank()) {
+            request.setCid("temporary-" + UUID.randomUUID());
+        }
     }
 }
