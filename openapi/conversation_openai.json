@@ -1,0 +1,210 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Conversation API",
+        "version": "1.0.0",
+        "description": "AI conversation controller. Provides non-streaming and streaming chat endpoints."
+    },
+    "servers": [
+        {
+            "url": "http://localhost:11622",
+            "description": "Local development server"
+        }
+    ],
+    "tags": [
+        {
+            "name": "Conversation",
+            "description": "Conversation chat endpoints"
+        }
+    ],
+    "paths": {
+        "/backend/chat/nonstreaming": {
+            "post": {
+                "tags": ["Conversation"],
+                "summary": "Send message in non-streaming mode",
+                "description": "Receives a conversation request and returns the assistant reply as a normal JSON response. If `cid` is null, the request is treated as temporary conversation mode (no memory).",
+                "operationId": "sendMessageNonStreaming",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ConversationRequest"
+                            },
+                            "examples": {
+                                "default": {
+                                    "summary": "Example request",
+                                    "value": {
+                                        "cid": "Conversation-id",
+                                        "message": "Your message"
+                                    }
+                                },
+                                "temporaryConversation": {
+                                    "summary": "Temporary conversation mode",
+                                    "value": {
+                                        "cid": null,
+                                        "message": "Hello"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Assistant reply returned successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConversationResponse"
+                                },
+                                "examples": {
+                                    "success": {
+                                        "summary": "Successful response",
+                                        "value": {
+                                            "success": true,
+                                            "message": "Hello, how can I help you?"
+                                        }
+                                    },
+                                    "requestNull": {
+                                        "summary": "Request is null",
+                                        "value": {
+                                            "success": false,
+                                            "error": "Request is null",
+                                            "errorCode": 400
+                                        }
+                                    },
+                                    "messageNull": {
+                                        "summary": "Message is null",
+                                        "value": {
+                                            "success": false,
+                                            "error": "Request message is null",
+                                            "errorCode": 400
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConversationResponse"
+                                },
+                                "examples": {
+                                    "badRequest": {
+                                        "value": {
+                                            "success": false,
+                                            "error": "Request message is null",
+                                            "errorCode": 400
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backend/chat/streaming": {
+            "post": {
+                "tags": ["Conversation"],
+                "summary": "Send message in streaming mode",
+                "description": "Receives a conversation request and returns the assistant reply as Server-Sent Events (SSE). If `cid` is null, the request is treated as temporary conversation mode (no memory). Stream events may include `status`, `delta`, and `error`.",
+                "operationId": "sendMessageStreaming",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ConversationRequest"
+                            },
+                            "examples": {
+                                "default": {
+                                    "summary": "Example request",
+                                    "value": {
+                                        "cid": "Conversation-id",
+                                        "message": "Your message"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "SSE stream of assistant reply",
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "description": "Server-Sent Events stream"
+                                },
+                                "examples": {
+                                    "streaming": {
+                                        "summary": "SSE example",
+                                        "value": "event: status\ndata: {\"success\":true,\"message\":\"start\"}\n\nevent: delta\ndata: {\"success\":true,\"message\":\"assistant reply delta\"}\n\nevent: status\ndata: {\"success\":true,\"message\":\"done\"}\n\n"
+                                    },
+                                    "error": {
+                                        "summary": "SSE error example",
+                                        "value": "event: error\ndata: {\"success\":false,\"error\":\"error\",\"errorCode\":500}\n\n"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload"
+                    },
+                    "500": {
+                        "description": "Internal server error during streaming"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ConversationRequest": {
+                "type": "object",
+                "properties": {
+                    "cid": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Conversation ID. If null, request is treated as temporary conversation mode without memory."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "User input message"
+                    }
+                },
+                "required": ["message"]
+            },
+            "ConversationResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "description": "Whether request processing succeeded"
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Assistant reply text, status text, or delta text"
+                    },
+                    "error": {
+                        "type": "string",
+                        "description": "Error message when request fails"
+                    },
+                    "errorCode": {
+                        "type": "integer",
+                        "format": "int32",
+                        "description": "Application error code"
+                    }
+                },
+                "description": "General response model inferred from controller usage and comments"
+            }
+        }
+    }
+}
