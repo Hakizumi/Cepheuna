@@ -76,6 +76,8 @@ public class OpenaiLLMService implements BaseLLMService {
      * @param request The conversation request
      * @return Built streaming flux.
      *
+     * @since 1.0.0
+     *
      * @see LLMService#streaming(ConversationRequest)
      * @see org.hakizumi.cepheuna.controller.ConversationController#sendMessageNonStreaming(ConversationRequest)
      */

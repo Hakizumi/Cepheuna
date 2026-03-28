@@ -31,13 +31,22 @@ public interface BaseLLMService {
     ConversationResponse nonStreaming(ConversationRequest request);
 
     /**
-     * Communicate with assistant streaming
+     * Build streaming OpenAI large language model's reply delta to {@link ConversationResponse} streaming flux.
+     * <p>
+     * Output streaming flux format:
+     * <blockquote>
+     * <pre>
+     * event: delta
+     * data: {"success":true,"message":"assistant's reply delta"}
+     * </pre>
+     * </blockquote>
      *
-     * @param request The input request
-     * @return The assistant's reply streaming flux
+     * @param request The conversation request
+     * @return Built streaming flux.
      *
      * @since 1.0.0
      *
+     * @see LLMService#streaming(ConversationRequest)
      * @see org.hakizumi.cepheuna.controller.ConversationController#sendMessageNonStreaming(ConversationRequest)
      */
     Flux<@NotNull ServerSentEvent<@NotNull ConversationResponse>> streaming(ConversationRequest request);
