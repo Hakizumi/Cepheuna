@@ -60,7 +60,7 @@ If not,check the program is running, the url you enter is correct.
 
 ### First -- Run the `Hakihive one-click deployment CLI program`
 Move the `Hakihive one-click deployment CLI program` to a proper path and unzip it,
-you will see an `executable program` named `Hakihive.exe`/,double click it.
+you will see an `executable program` named `Hakihive.exe` or `Hakihive`,double click it.
 Then the `Hakihive one-click deployment CLI program` will auto install and deploy all requirements.
 After the `Hakihive one-click deployment CLI program` prints `Deployed successfully.`,that means `Hakihive` deployed successfully.
 
