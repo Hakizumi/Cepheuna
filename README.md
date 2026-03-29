@@ -48,22 +48,26 @@ mvn spring-boot:run
 ```
 
 ### Third -- Talk with **Hakihive**
-#### Open your browser ( Any one is ok ) and access http://localhost:11622/
-#### If you have seen the page,that means **Hakihive** is running healthy.
-#### If not,check the program is running, the url you enter is correct.
+Open your browser ( Any one is ok ) and access http://localhost:11622/
+If you have seen the page,that means **Hakihive** is running healthy.
+If not,check the program is running, the url you enter is correct.
 
 ---
 
 ## How to use? For users
 ### Prepare -- Requires
-* `JRE` >= 21
-* `Hakihive release jar` ( Enter [Hakihive-Releases](https://github.com/Hakizumi/hakihive/releases) to download )
+* `Hakihive one-click deployment CLI program` ( Named `Hakihive-system-platform.zip/.tar.gz` ) ( Enter [Hakihive-Releases](https://github.com/Hakizumi/hakihive/releases) to download )
 
-### First -- Configure your openai-api-url and api-key
-At the same-folder of the `Hakihive jar`,create a folder names `config`.
-<br>
-In the folder `config`,create a yaml file: `application.yml`.
-<br>
+### First -- Run the `Hakihive one-click deployment CLI program`
+Move the `Hakihive one-click deployment CLI program` to a proper path and unzip it,
+you will see an `executable program` named `Hakihive.exe`/,double click it.
+Then the `Hakihive one-click deployment CLI program` will auto install and deploy all requirements.
+After the `Hakihive one-click deployment CLI program` prints `Deployed successfully.`,that means `Hakihive` deployed successfully.
+
+### Second -- Configure your openai-api-url and api-key
+At the same-folder of the `Hakihive one-click deployment CLI program`,
+enter the path `config/application.yml`.
+
 In the `application.yml`,configure
 ```yaml
 spring:
@@ -73,16 +77,14 @@ spring:
       base-url: https://api.openai.com   # Api url,you can replace it with your own transit station
 ```
 
-### Second -- Run the Hakihive program
-At the same-folder of the `Hakihive jar`,run shell:
-```shell
-java -jar hakihive-x.x.x.jar
-```
+### Third -- Run the Hakihive program
+At the same-folder of the `Hakihive one-click deployment CLI program`,
+run the start shell ( In Windows,that is `start.bat`,in Mac or Linux,that is `start.sh` ).
 
-### Third -- Talk with **Hakihive**
-#### Open your browser ( Any one is ok ) and access http://localhost:11622/ ( or http://localhost:11622/chat )
-#### If you have seen the page,that means **Hakihive** is running healthy.
-#### If not,check the program is running, the url you enter is correct.
+### Forth -- Talk with **Hakihive**
+Open your browser ( Any one is ok ) and access http://localhost:11622/ ( or http://localhost:11622/chat )
+If you have seen the page,that means **Hakihive** is running healthy.
+If not,check the program is running, the url you enter is correct.
 
 ---
 
