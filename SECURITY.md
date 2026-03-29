@@ -1,17 +1,5 @@
 # Security Policy
 
-## Supported Versions
-
-Currently supported versions:
-
-| Version | Supported | Reason / Highlights                     |
-|---------|-----------|-----------------------------------------|
-| 1.3.0   | Yes       | Add memory system.                      |
-| 1.2.0   | No        | The web frontend service is not usable. |
-| 1.1.0   | No        | The web frontend service is not usable. |
-| 1.0.0   | No        | The web frontend service is not usable. |
-
-
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability, please:
