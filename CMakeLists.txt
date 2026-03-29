@@ -11,6 +11,11 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
 
 add_executable(Hakihive ${SRC_FILES})
 
+if (WIN32)
+    # Prevent macro definition pollution of Windows
+    target_compile_definitions(Hakihive PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+
 find_package(CURL REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(ftxui CONFIG REQUIRED)
@@ -25,5 +30,5 @@ target_link_libraries(Hakihive PRIVATE
         ftxui::component
         OpenSSL::SSL
         OpenSSL::Crypto
-        archive
+        LibArchive::LibArchive
 )

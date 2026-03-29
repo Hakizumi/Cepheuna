@@ -1,9 +1,18 @@
 #include <iostream>
 #include <regex>
+#include <cstdio>
+#include <cstdlib>
 
 #include "../utils/input_util.h"
 #include "java_runtime_base_installer.h"
 #include "java_runtime_installer.h"
+
+#ifdef _WIN32
+    // For compatibility
+    // Windows will call an error when using popen
+    #define popen _popen
+    #define pclose _pclose
+#endif
 
 using std::cout;
 using std::endl;
@@ -56,14 +65,17 @@ int getEnvJavaRuntimeVersion() {
 int getPathJavaRuntimeVersion()
 {
     #ifdef _WIN32
+        const auto javaCmd = "runtime/bin/java.exe";
         const int ret = system("runtime/bin/java.exe -version >nul 2>&1");
     #else
-        const int ret = system("runtime/bin/java.exe -version >/dev/null 2>&1");
+        const char* javaCmd = "runtime/bin/java";
+        const int ret = system("runtime/bin/java -version >/dev/null 2>&1");
     #endif
 
     if (ret != 0) return -1;
 
-    FILE* pipe = popen("runtime/java.exe -version 2>&1", "r");
+    const std::string cmd = std::string(javaCmd) + " -version 2>&1";
+    FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
         return -1;
     }
