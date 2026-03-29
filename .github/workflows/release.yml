@@ -10,8 +10,43 @@ permissions:
   pull-requests: read
 
 jobs:
-  build-and-release:
-    runs-on: ubuntu-latest
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runs_on: ubuntu-24.04
+            triplet: x64-linux
+            archive_name: Hakihive-linux-x64
+            exe_name: Hakihive
+          - name: linux-arm64
+            runs_on: ubuntu-24.04-arm
+            triplet: arm64-linux
+            archive_name: Hakihive-linux-arm64
+            exe_name: Hakihive
+          - name: windows-x64
+            runs_on: windows-2025
+            triplet: x64-windows
+            archive_name: Hakihive-windows-x64
+            exe_name: Hakihive.exe
+          - name: windows-arm64
+            runs_on: windows-11-arm
+            triplet: arm64-windows
+            archive_name: Hakihive-windows-arm64
+            exe_name: Hakihive.exe
+          - name: macos-arm64
+            runs_on: macos-latest
+            triplet: arm64-osx
+            archive_name: Hakihive-macos-arm64
+            exe_name: Hakihive
+          - name: macos-intel
+            runs_on: macos-15-intel
+            triplet: x64-osx
+            archive_name: Hakihive-macos-intel
+            exe_name: Hakihive
 
     steps:
       - name: Checkout code
@@ -19,30 +54,149 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Bootstrap vcpkg (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh"
+
+      - name: Bootstrap vcpkg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$env:RUNNER_TEMP/vcpkg"
+          & "$env:RUNNER_TEMP/vcpkg/bootstrap-vcpkg.bat"
+
+      - name: Install dependencies (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          "$RUNNER_TEMP/vcpkg/vcpkg" install \
+            curl:${{ matrix.triplet }} \
+            nlohmann-json:${{ matrix.triplet }} \
+            openssl:${{ matrix.triplet }} \
+            libarchive:${{ matrix.triplet }} \
+            ftxui:${{ matrix.triplet }}
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "$env:RUNNER_TEMP/vcpkg/vcpkg.exe" install `
+            curl:${{ matrix.triplet }} `
+            nlohmann-json:${{ matrix.triplet }} `
+            openssl:${{ matrix.triplet }} `
+            libarchive:${{ matrix.triplet }} `
+            ftxui:${{ matrix.triplet }}
+
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET="${{ matrix.triplet }}"
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake -S . -B build `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE="$env:RUNNER_TEMP/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET="${{ matrix.triplet }}"
+
+      - name: Build target Hakihive (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cmake --build build --config Release --target Hakihive -- -j 3
+
+      - name: Build target Hakihive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target Hakihive -- /m:3
+
+      - name: Collect binary (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ -f "build/Hakihive" ]; then
+            cp "build/Hakihive" "dist/${{ matrix.exe_name }}"
+          elif [ -f "build/Release/Hakihive" ]; then
+            cp "build/Release/Hakihive" "dist/${{ matrix.exe_name }}"
+          else
+            echo "Hakihive binary not found"
+            find build -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
+      - name: Collect binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          if (Test-Path "build/Release/Hakihive.exe") {
+            Copy-Item "build/Release/Hakihive.exe" "dist/${{ matrix.exe_name }}"
+          } elseif (Test-Path "build/Hakihive.exe") {
+            Copy-Item "build/Hakihive.exe" "dist/${{ matrix.exe_name }}"
+          } else {
+            Write-Host "Hakihive.exe not found"
+            Get-ChildItem -Recurse build | Select-Object FullName
+            exit 1
+          }
+
+      - name: Package artifact (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd dist
+          tar -czf "${{ matrix.archive_name }}.tar.gz" "${{ matrix.exe_name }}"
+
+      - name: Package artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist/${{ matrix.exe_name }}" -DestinationPath "dist/${{ matrix.archive_name }}.zip" -Force
+
+      - name: Upload artifact (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
         with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
+          name: ${{ matrix.archive_name }}
+          path: dist/${{ matrix.archive_name }}.tar.gz
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
         with:
-          node-version: '24'
+          name: ${{ matrix.archive_name }}
+          path: dist/${{ matrix.archive_name }}.zip
 
-      - name: Compile TypeScript
-        run: npx --yes --package typescript tsc
+  release:
+    name: Create release
+    needs: build
+    runs-on: ubuntu-24.04
+    if: github.ref_type == 'tag'
 
-      - name: Build with Maven
-        run: mvn clean package -DskipTests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Prepare release metadata
         shell: bash
         run: |
           TAG_NAME="${GITHUB_REF#refs/tags/}"
-
-          cp target/hakihive.jar "target/hakihive-${TAG_NAME}.jar"
+          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
 
           if [[ "$TAG_NAME" == *alpha* || "$TAG_NAME" == *beta* ]]; then
             echo "PRERELEASE=true" >> "$GITHUB_ENV"
@@ -50,13 +204,15 @@ jobs:
             echo "PRERELEASE=false" >> "$GITHUB_ENV"
           fi
 
-          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
 
-      - name: Debug build outputs
+      - name: Show downloaded artifacts
+        shell: bash
         run: |
-          ls -lah target || true
-          echo "Release tag: $TAG_NAME"
-          echo "Prerelease: $PRERELEASE"
+          find release-assets -type f | sort
 
       - name: Build release notes from commits
         uses: actions/github-script@v8
@@ -88,9 +244,12 @@ jobs:
               revRange = sha;
             }
 
-            const raw = run(
-              `git log ${revRange} --no-merges --pretty=format:%H%x1f%an%x1f%s%x1f%b%x1e`
-            );
+            let raw = '';
+            try {
+              raw = run(`git log ${revRange} --no-merges --pretty=format:%H%x1f%an%x1f%s%x1f%b%x1e`);
+            } catch (e) {
+              raw = '';
+            }
 
             const records = raw
               .split('\x1e')
@@ -114,7 +273,6 @@ jobs:
               const lines = [];
               for (const rawLine of body.split('\n')) {
                 if (!rawLine.trim()) continue;
-
                 const line = rawLine.replace(/\t/g, '    ');
                 const stripped = line.trim();
 
@@ -145,7 +303,6 @@ jobs:
                 if (!prs.length) return null;
 
                 const pr = prs.find(p => p.merged_at) || prs[0];
-
                 return {
                   number: pr.number,
                   url: pr.html_url,
@@ -236,7 +393,6 @@ jobs:
             console.log(notes);
 
       - name: Create GitHub Release and upload assets
-        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           name: Hakihive ${{ env.TAG_NAME }}
@@ -246,7 +402,7 @@ jobs:
           prerelease: ${{ env.PRERELEASE == 'true' }}
           generate_release_notes: false
           files: |
-            target/hakihive-${{ env.TAG_NAME }}.jar
-
+            release-assets/**/*.tar.gz
+            release-assets/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
